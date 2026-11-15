@@ -13,7 +13,7 @@ class Detector:
             raise ValueError('Model file missing or checksum mismatch')
         self.model = YOLO(str(path))
         self.tracker = BYTETracker(SimpleNamespace(track_high_thresh=0.5,track_low_thresh=0.1,
-                                  new_track_thresh=0.6,track_buffer=30,match_thresh=0.8,fuse_score=True),frame_rate=fps)
+                                  new_track_thresh=0.6,track_buffer=max(1, int(fps)),match_thresh=0.8,fuse_score=True))
 
     def run(self, frame, floor, threshold):
         import torch

@@ -4,7 +4,7 @@ Computer-vision **prototype evaluation** of detection and tracking under poor vi
 **Not safety-certified. Does not replace rescuers. Results depend on the uploaded footage and model.**
 
 ## Status
-Supabase schema and authenticated Arduino event service are deployed. The Next.js frontend is deployed on Vercel; validation and dependency updates are recorded in [verification](docs/VERIFICATION.md). **Hosted video inference remains disabled until the Python API/worker is deployed and verified.** Source repository: https://github.com/asoracca/nightwatch. No legacy data has been copied.
+Supabase schema and authenticated Arduino event service are deployed. The Next.js frontend is deployed on Vercel; validation and dependency updates are recorded in [verification](docs/VERIFICATION.md). **The backend real-video upload → processing → database → two-user isolation flow now passes in an isolated local Supabase stack. Hosted video inference remains disabled until Render deployment is verified.** Source repository: https://github.com/asoracca/nightwatch. No legacy data has been copied.
 
 Hardware integration: [Arduino setup and protocol](docs/HARDWARE.md). The UNO WiFi Rev2 sketch sends real motion events over TLS using a restricted, expiring device token. Camera-board image ingestion remains a separate future feature.
 
@@ -39,3 +39,5 @@ Supabase handles signup/login/logout/refresh. API authentication checks the toke
 
 ## Dependency and model licensing
 Direct dependency versions are pinned. The frontend npm lockfile is included; npm audit reported zero vulnerabilities on 2026-11-15. Re-audit dependencies before subsequent releases. Ultralytics software/weights licensing (AGPL or commercial terms as applicable) must be reviewed for your intended distribution. No fine-tuning or ground-truth accuracy evaluation is claimed. PyTorch currently supplies real model inference and stored per-run evaluation observations.
+
+Teammate frontend integration: [API handoff](docs/FRONTEND_HANDOFF.md). Real ML evidence: [validation](docs/ML_VALIDATION.md). Render services: `render.yaml` (worker billing approval required).

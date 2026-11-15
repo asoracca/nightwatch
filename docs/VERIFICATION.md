@@ -46,3 +46,14 @@ Backend/worker: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, FRON
 - Arduino firmware has not been compiled, flashed or tested against physical hardware; TLS certificate provisioning and sensor wiring remain required.
 - Camera image upload, SAM, fine-tuning and annotated accuracy evaluation are deferred.
 - The complete flow has not passed locally. A successful frontend build or SQL test is not a substitute.
+
+## Backend milestone update — later on 2026-11-15
+Scope now excludes frontend replacement: a teammate will supply that separately.
+
+A complete backend acceptance run passed against an isolated local Supabase Docker stack in the Linux verification environment (not on the user's Mac). All four migrations applied on startup. Two users signed up through Auth, then `python -m pytest tests/test_integration.py -q --tb=short` passed: **1 passed in 9.08 seconds**. The test used real sample footage and actual YOLO/ByteTrack, not model mocks.
+
+Verified upload initialization, actual signed Storage upload, byte/hash/container validation, job enqueue, duplicate processing prevention, completed status, saved frames/tracks/investigation/experiment rows, signed frame retrieval, and second-user denial through API, direct REST and private Storage. Stored result: 40 condition-frames (20 clear + 20 fog), 136 accepted observations (85 clear + 51 fog), miss_rate NULL. This is public test footage, not real user or migrated legacy data.
+
+The opt-in real-model test also passed over all four visibility conditions. See ML_VALIDATION.md for provenance, hashes, dependency refresh and audit qualifications. Fifty unit tests passed after web/explanation dependency updates; deployment verification continues.
+
+Render repository access is connected. API/worker deployment configuration is prepared in render.yaml and Dockerfile, with CPU wheels and checksum-pinned model downloading. Hosted service deployment and its acceptance run are still pending. No frontend files were changed in this backend milestone.

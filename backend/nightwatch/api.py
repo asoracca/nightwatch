@@ -135,7 +135,7 @@ def process(video_id: UUID, body: ProcessConfig,user=Depends(identity)):
     s = settings()
     if not s.model_sha256 or len(s.model_sha256) != 64:
         raise HTTPException(503,'Server model checksum is not configured')
-    config = {**body.model_dump(exclude={'reprocess'}),'model_version':s.model_version,'model_sha256':s.model_sha256,'pipeline_version':'visibility-v1'}
+    config = {**body.model_dump(exclude={'reprocess'}),'model_version':s.model_version,'model_sha256':s.model_sha256,'pipeline_version':'visibility-v2'}
     key = idempotency_key(video_id,s.model_version,config)
     return Store().rpc('enqueue_job',{'p_video':str(video_id),'p_key':key,'p_config':config,'p_reprocess':body.reprocess})
 
