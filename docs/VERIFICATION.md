@@ -30,6 +30,11 @@ Database tests verify UUID ownership/admin policy, job lifecycle, device token h
 - Hardware ingress: `POST https://nightwatch-anggunsoracca.vercel.app/api/device-events`
 - Supabase hardware function deployed with its own restricted-token/user-JWT validation. Service credentials stay in the function runtime.
 
+## Hosted smoke checks
+Final Vercel deployment `dpl_CyBCD8rvWf3GzqdrZrRtPXEZm3JM` reached READY. Its build ran TypeScript checks, all 3 frontend tests, and Next.js production compilation. Public HTTPS checks passed: home 200; malformed device JSON 422; unknown device token 401; body over 4096 bytes 413; unauthenticated device registration POST 401. A preliminary GET to the POST-only registration proxy correctly returned 405; the follow-up POST verified authentication rejection. These requests created no device/event records.
+
+All 73 source/config/documentation files were published to private `asoracca/nightwatch` through the GitHub connector. Commit `7be692b046a7a1c4a8652ded931aa85d7243af0a` contains the implementation. No GitHub Actions result is claimed here.
+
 ## Required environment
 Frontend: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY; HARDWARE_FUNCTION_URL on the server. NEXT_PUBLIC_API_URL remains unset until a hosted Python service exists; upload controls are deliberately disabled in this hosted deployment.
 Backend/worker: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, FRONTEND_ORIGIN, MODEL_PATH, MODEL_VERSION, MODEL_SHA256. See .env.example. Arduino uses Wi-Fi credentials, public API hostname and its own short-lived restricted token; no Supabase service key.
