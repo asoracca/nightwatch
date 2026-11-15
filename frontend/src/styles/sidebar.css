@@ -1,0 +1,276 @@
+/*
+ * Collapsible glass sidebar. Loaded after index.css and identity.css (see main.tsx),
+ * before glitch.css.
+ *
+ *  - Width comes from --nw-sb-w, which Motion animates on the <aside> (250 ↔ 76px).
+ *    The shell's first grid column is `auto`, so the content area follows it every frame.
+ *  - Glass: translucent night-navy, 18px backdrop blur, silver-blue hairline, soft
+ *    shadow, and a faint moonlight reflection along the top and right edge.
+ *  - ≤760px: a slide-in drawer (always full width; collapsed rules don't apply).
+ */
+
+.app-shell {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+/* ───────────── Glass panel ───────────── */
+
+.sidebar {
+  --nw-sb-w: 250px;
+  top: 12px;
+  width: var(--nw-sb-w);
+  height: calc(100vh - 24px);
+  margin: 12px 0 12px 12px;
+  padding: 24px 14px 16px;
+  border: 1px solid rgb(195 207 232 / 13%);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgb(17 18 34 / 74%) 0%, rgb(11 11 24 / 70%) 100%);
+  -webkit-backdrop-filter: blur(18px) saturate(125%);
+  backdrop-filter: blur(18px) saturate(125%);
+  box-shadow:
+    0 24px 60px rgb(0 0 0 / 45%),
+    0 2px 10px rgb(0 0 0 / 30%),
+    inset 0 1px 0 rgb(225 232 255 / 7%);
+}
+
+/* Moonlight reflection: a cool sheen from the top-left and a light streak down the right edge. */
+.sidebar::before {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background:
+    linear-gradient(155deg, rgb(205 216 245 / 8%) 0%, transparent 24%),
+    linear-gradient(180deg, transparent 6%, rgb(195 207 232 / 24%) 30%, transparent 62%) right / 1px 100% no-repeat,
+    radial-gradient(120% 36% at 100% 0%, rgb(195 207 232 / 6%), transparent 60%);
+  content: "";
+  pointer-events: none;
+}
+
+/* ───────────── Controls ───────────── */
+
+.sidebar-toggle,
+.sidebar-close {
+  position: absolute;
+  z-index: 6;
+  place-items: center;
+  border: 1px solid rgb(195 207 232 / 22%);
+  border-radius: 50%;
+  background: rgb(18 19 36 / 92%);
+  color: var(--nw-fog);
+  cursor: pointer;
+  transition: color 160ms ease, border-color 160ms ease, background-color 160ms ease, transform 160ms ease;
+}
+
+.sidebar-toggle:hover,
+.sidebar-close:hover {
+  border-color: rgb(126 238 250 / 40%);
+  background: rgb(24 26 46 / 96%);
+  color: var(--nw-silver);
+}
+
+.sidebar-toggle:active,
+.sidebar-close:active {
+  transform: scale(0.94);
+}
+
+/* Straddles the panel's right edge, so it's in the same place expanded or collapsed. */
+.sidebar-toggle {
+  top: 34px;
+  right: -14px;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 45%);
+}
+
+.sidebar-toggle svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 1.8;
+}
+
+.sidebar-close {
+  top: 18px;
+  right: 14px;
+  display: none;
+  width: 34px;
+  height: 34px;
+}
+
+.sidebar-close svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* ───────────── Contents (clip cleanly while the width animates) ───────────── */
+
+.brand {
+  overflow: hidden;
+  min-height: 42px;
+  padding: 0 6px;
+}
+
+.nw-wordmark,
+.nav-link-label,
+.preview-status-copy,
+.replay-intro-label,
+.sidebar-footnote {
+  white-space: nowrap;
+  transition: opacity 180ms ease;
+}
+
+.preview-status,
+.replay-intro,
+.sidebar-footnote {
+  overflow: hidden;
+}
+
+.nav-item {
+  position: relative;
+  /* Grid items won't shrink below their content (the no-wrap label) by default,
+     which kept the links ~180px wide inside the 76px rail. */
+  min-width: 0;
+}
+
+.primary-nav {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* The no-wrap label can't shrink below its text, so flexbox squeezed the icon to 0px
+   in the rail. Icons keep their size; the label is what gets clipped. */
+.nav-link-icon {
+  flex: 0 0 auto;
+}
+
+/* ───────────── Navigation states ───────────── */
+
+.nav-link {
+  transition:
+    color 240ms ease,
+    background-color 240ms ease,
+    border-color 240ms ease,
+    box-shadow 240ms ease;
+}
+
+.nav-link:hover {
+  border-color: rgb(195 207 232 / 10%);
+  background: rgb(195 207 232 / 5%);
+}
+
+/* Active: muted moonlit silver on a soft translucent wash, cyan→violet indicator. */
+.nav-link[aria-current="page"] {
+  border-color: rgb(195 207 232 / 14%);
+  background: linear-gradient(90deg, rgb(195 207 232 / 10%), rgb(168 85 247 / 5%) 70%, rgb(168 85 247 / 2%));
+  box-shadow: inset 0 1px 0 rgb(225 232 255 / 5%);
+  color: var(--nw-silver);
+}
+
+.nav-link[aria-current="page"] .nav-link-icon {
+  color: #9fe3ef;
+}
+
+.active-nav-indicator {
+  background: linear-gradient(180deg, #7eeefa, #a98bf5);
+  box-shadow: 0 0 10px rgb(126 238 250 / 28%);
+}
+
+/* Tooltip (collapsed rail only). */
+.nav-tooltip {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 18px);
+  z-index: 30;
+  padding: 6px 10px;
+  border: 1px solid rgb(195 207 232 / 16%);
+  border-radius: 8px;
+  background: rgb(14 15 28 / 95%);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 45%);
+  color: var(--nw-silver);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-4px, -50%);
+  visibility: hidden;
+  transition: opacity 140ms ease, transform 140ms ease, visibility 0s linear 140ms;
+}
+
+/* ───────────── Desktop / tablet: collapsible rail ───────────── */
+
+@media (min-width: 761px) {
+  .sidebar {
+    transition: padding 340ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .nav-link,
+  .preview-status,
+  .replay-intro {
+    transition-property: color, background-color, border-color, box-shadow, padding, margin;
+    transition-duration: 240ms, 240ms, 240ms, 240ms, 340ms, 340ms;
+  }
+
+  .sidebar[data-collapsed="true"] {
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+
+  .sidebar[data-collapsed="true"] :is(.nw-wordmark, .nav-caption, .nav-link-label, .preview-status-copy, .replay-intro-label, .sidebar-footnote) {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* Re-centre the icons in the 76px rail. */
+  .sidebar[data-collapsed="true"] .nav-link {
+    padding-right: 0;
+    padding-left: 18px;
+  }
+
+  .sidebar[data-collapsed="true"] .preview-status {
+    padding-left: 22px;
+  }
+
+  .sidebar[data-collapsed="true"] .replay-intro {
+    margin-left: 21px;
+  }
+
+  .sidebar[data-collapsed="true"] .nav-item:is(:hover, :focus-within) .nav-tooltip {
+    opacity: 1;
+    transform: translate(0, -50%);
+    visibility: visible;
+    transition-delay: 0s;
+  }
+}
+
+/* ───────────── Mobile: slide-in drawer ───────────── */
+
+@media (max-width: 760px) {
+  .sidebar {
+    top: 0;
+    width: min(284px, 86vw);
+    height: 100vh;
+    height: 100dvh;
+    margin: 0;
+    padding: 24px 16px 18px;
+    border-left: 0;
+    border-radius: 0 18px 18px 0;
+  }
+
+  .sidebar-toggle {
+    display: none;
+  }
+
+  .sidebar-close {
+    display: grid;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .nav-link,
+  .preview-status,
+  .replay-intro {
+    transition: none;
+  }
+}

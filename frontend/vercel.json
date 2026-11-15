@@ -1,1 +1,17 @@
-{"framework":"nextjs","buildCommand":"npm run typecheck && NODE_ENV=test npm test && npm run build","installCommand":"npm ci"}
+{
+  "framework": "vite",
+  "installCommand": "npm ci",
+  "buildCommand": "npm run typecheck && npm test && npm run build",
+  "outputDirectory": "dist",
+  "rewrites": [{ "source": "/((?!api/).*)", "destination": "/index.html" }],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "no-referrer" },
+        { "key": "X-Frame-Options", "value": "DENY" }
+      ]
+    }
+  ]
+}

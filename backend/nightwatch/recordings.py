@@ -1,6 +1,6 @@
 """Process Arduino recordings listed in public.video_recordings and publish the results.
 
-For each recording: download the video, run YOLO11n + ByteTrack, write results locally to
+For each recording: download the video, run the pinned YOLO11 model + ByteTrack, write results locally to
 outputs/recordings/<id>/, then upload annotated frames/clips to the 'recording-results'
 bucket and upsert one row into public.recording_results. Pass --no-upload to keep
 everything local (read-only against Supabase).
@@ -26,7 +26,10 @@ from uuid import UUID
 from .detector import Detector
 from .domain import ProcessConfig
 from .fusion import FUSION_VERSION, fuse, hud_text, sensor_timeline
+from .findings import findings
 from .metrics import needs_review, summarize
+from .models import CATALOG, ensure, label as model_label, version as model_version_of
+from .sensor_assist import reading_at, readings_from_timeline
 from .settings import settings
 from .store import Store, StoreError
 from .video import extract, probe, visibility
@@ -38,6 +41,8 @@ RESULTS_BUCKET = 'recording-results'
 COLUMNS = ('id,device_id,recorded_at,uploaded_at,duration_seconds,width,height,fps,file_size_bytes,storage_path,'
            'temp,humidity,distance,accel_mean,vibration')
 DEFAULT_OUT = Path(__file__).resolve().parents[2] / 'outputs' / 'recordings'
+# Set on recording_results.fusion_version by POST /recordings/{id}/reinvestigate: the watcher reruns from scratch.
+REPROCESS_MARK = 'reprocess-requested'
 ACCEPTED_COLOR = (0, 200, 0)      # BGR green: confidence >= threshold
 REVIEW_COLOR = (0, 170, 255)      # BGR amber: review band [floor, threshold)
 
@@ -84,7 +89,9 @@ def annotate(frame, detections, hud=''):
         p1, p2 = (int(x1 * w), int(y1 * h)), (int(x2 * w), int(y2 * h))
         color = ACCEPTED_COLOR if d['accepted'] else REVIEW_COLOR
         cv2.rectangle(out, p1, p2, color, 2)
-        text = f"{d['label']} {d['confidence']:.2f}" + (f" #{d['track_id']}" if d['track_id'] is not None else '')
+        fused = d.get('fused_confidence')
+        score = f"{d['confidence']:.2f}" if fused is None or fused == d['confidence'] else f"{fused:.2f}* (model {d['confidence']:.2f})"
+        text = f"{d['label']} {score}" + (f" #{d['track_id']}" if d['track_id'] is not None else '')
         cv2.putText(out, text, (p1[0], max(12, p1[1] - 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 1, cv2.LINE_AA)
     return out
 
@@ -116,11 +123,13 @@ def process_recording(rec, db, out_root, cfg, bucket):
         fps = min(cfg.sampling_fps, meta['fps'])
         samples = extract(source, Path(tmp) / 'samples', fps, meta['duration_seconds'])
         timeline = sensor_timeline(rec, meta['duration_seconds'])
+        # Same readings drive score adjustment before ByteTrack (sensor_assist.py), when enabled.
+        readings = readings_from_timeline(timeline) if cfg.sensor_assist else []
 
         frames, clips = [], {}
         for condition in cfg.conditions:
             # New tracker per condition, so track IDs are scoped to one pass over the clip.
-            detector = Detector(s.model_path, s.model_sha256, fps)
+            detector = Detector(ensure(s.default_model, s), CATALOG[s.default_model]['sha256'], fps)
             cond_dir = out / 'frames' / condition
             cond_dir.mkdir(parents=True, exist_ok=True)
             for number, timestamp, path in samples:
@@ -129,7 +138,7 @@ def process_recording(rec, db, out_root, cfg, bucket):
                     raise ValueError('Sample frame cannot be decoded')
                 frame = visibility(frame, condition)
                 start = time.perf_counter()
-                detections = detector.run(frame, cfg.review_floor, cfg.threshold)
+                detections = detector.run(frame, cfg.review_floor, cfg.threshold, sensors=reading_at(readings, timestamp))
                 elapsed = (time.perf_counter() - start) * 1000
                 image = cond_dir / f'{number:06d}.jpg'
                 second = int(timestamp)
@@ -143,10 +152,11 @@ def process_recording(rec, db, out_root, cfg, bucket):
             clips[condition] = make_clip(cond_dir, fps, out / f'annotated_{condition}.mp4')
 
     summary = summarize(frames, None)
+    summary['findings'] = findings(frames, cfg.threshold, cfg.review_floor, fps)
     summary.pop('affected_use_case', None)
     result = {'recording': rec, 'video': meta,
               'config': {**cfg.model_dump(exclude={'reprocess'}), 'effective_sampling_fps': fps, 'bucket': bucket},
-              'model': {'name': 'YOLO11n + ByteTrack', 'version': s.model_version, 'sha256': s.model_sha256},
+              'model': {'name': model_label(s.default_model), 'version': model_version_of(s.default_model), 'sha256': CATALOG[s.default_model]['sha256']},
               'processed_at': datetime.now(timezone.utc).isoformat(),
               'summary': summary, 'annotated_clips': clips, 'frames': frames,
               'fusion': fuse(timeline, frames, cfg.threshold, cfg.review_floor)}
@@ -205,7 +215,7 @@ def local_result(out_root, rec, cfg, folder=None):
         result = json.loads((out / 'result.json').read_text())
         s = settings()
         current = (result['fusion']['fusion_version'] == FUSION_VERSION
-                   and result['model']['version'] == s.model_version and result['model']['sha256'] == s.model_sha256
+                   and result['model']['version'] == model_version_of(s.default_model) and result['model']['sha256'] == CATALOG[s.default_model]['sha256']
                    and all(result['config'].get(k) == v for k, v in cfg.model_dump(exclude={'reprocess'}).items())
                    and all(result['recording'].get(k) == rec.get(k) for k in COLUMNS.split(','))
                    and all((out / f['image']).is_file() for f in result['frames'])
@@ -285,6 +295,14 @@ def sync_local(db, out_root, cfg, bucket):
     log.info('Local sync: %d saved result(s) found, %d uploaded', len(ids), uploaded)
 
 
+def requested_reprocessing(db):
+    """Recordings whose result was marked for reinvestigation (any age, not just the recent window)."""
+    rows = db.rows(RESULTS_TABLE, select='recording_id', fusion_version='eq.' + REPROCESS_MARK, limit='20')
+    if not rows:
+        return []
+    return db.rows(TABLE, select=COLUMNS, id='in.(' + ','.join(r['recording_id'] for r in rows) + ')')
+
+
 def watch(db, out_root, cfg, bucket, interval, upload):
     log.info('Watching %s every %ss; results -> %s', TABLE, interval, RESULTS_TABLE if upload else out_root)
     if upload:
@@ -294,6 +312,10 @@ def watch(db, out_root, cfg, bucket, interval, upload):
             log.error('Local sync skipped (HTTP %s); the watch loop still handles recent recordings', e.status)
     while True:
         try:
+            if upload:
+                # Explicit reinvestigation: never reuse the cached local result.
+                for rec in requested_reprocessing(db):
+                    run_one(rec, db, out_root, cfg, bucket, upload, reuse=False)
             recs = fetch_recordings(db, limit=20)
             done = already_handled(db, recs, out_root, upload)
             for rec in reversed(recs):
@@ -305,6 +327,8 @@ def watch(db, out_root, cfg, bucket, interval, upload):
 
 
 def main(argv=None):
+    from .worker import configure_threads
+    configure_threads()
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     which = p.add_mutually_exclusive_group(required=True)
     which.add_argument('--id', type=UUID, help='process one recording by video_recordings.id')
@@ -333,7 +357,7 @@ def main(argv=None):
         return 0
     bucket = args.bucket or settings().recordings_bucket
     if not bucket:
-        p.error('set RECORDINGS_BUCKET in backend/.env or pass --bucket (see --list-buckets)')
+        p.error('set RECORDINGS_BUCKET in .env (repository root) or pass --bucket (see --list-buckets)')
     cfg = ProcessConfig(sampling_fps=args.fps, threshold=args.threshold,
                         review_floor=args.review_floor, conditions=args.conditions)
     upload = not args.no_upload

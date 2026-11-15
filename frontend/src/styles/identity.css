@@ -1,0 +1,363 @@
+/*
+ * NightWatch identity layer — typography roles, brand components, global polish.
+ * Loaded after index.css (see main.tsx) so it can refine page styles without
+ * editing them. Roles:
+ *   --font-brand    Cinzel           wordmark, page + section titles, counters
+ *   --font-case     IM Fell English  investigation titles (the "case file" voice)
+ *   --font-display  Space Grotesk    interface headings (topbar, controls)
+ *   --font-body     Inter            everything people read
+ *   --font-mono     JetBrains Mono   identifiers, timestamps, sensor labels
+ */
+
+:root {
+  --font-brand: "Cinzel", "Times New Roman", serif;
+  --font-case: "IM Fell English", Georgia, serif;
+  --nw-focus-ring: 0 0 0 2px #090617, 0 0 0 4px rgb(0 229 255 / 75%), 0 0 18px rgb(0 229 255 / 30%);
+  /* Moonlit text tones. */
+  --nw-silver: #e4e7ef;
+  --nw-fog: #b4b9c8;
+  --nw-moonblue: #c3cfe8;
+  --nw-moon-glow: 0 0 18px rgb(195 207 232 / 16%);
+}
+
+/* ───────────── Brand mark ───────────── */
+
+.nw-mark {
+  display: block;
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+.nw-mark-tile {
+  fill: #17122b;
+  stroke: rgb(168 85 247 / 22%);
+  stroke-width: 1;
+}
+
+.nw-mark-ring,
+.nw-mark-orbit {
+  transform-origin: 24px 24px;
+}
+
+.nw-mark--animated .nw-mark-ring {
+  animation: nw-mark-spin 18s linear infinite;
+}
+
+.nw-mark--animated .nw-mark-ripple {
+  animation: nw-mark-ripple 3.2s ease-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@keyframes nw-mark-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes nw-mark-ripple {
+  0% { opacity: 0.8; transform: rotate(-24deg) scale(0.86); }
+  100% { opacity: 0; transform: rotate(-24deg) scale(1.22); }
+}
+
+/* ───────────── Wordmark ───────────── */
+
+.nw-wordmark {
+  display: grid;
+  gap: 3px;
+  line-height: 1;
+}
+
+.nw-wordmark-name {
+  color: var(--nw-silver);
+  font-family: var(--font-brand);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-shadow: var(--nw-moon-glow);
+}
+
+.nw-wordmark-caption {
+  color: var(--nw-dim);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.nw-wordmark--lg .nw-wordmark-name {
+  font-size: 22px;
+  letter-spacing: 0.28em;
+}
+
+/* Sidebar brand lockup */
+.brand {
+  gap: 11px;
+}
+
+.brand .nw-mark {
+  filter: drop-shadow(0 0 10px rgb(168 85 247 / 18%));
+  transition: filter var(--nw-motion-normal) ease;
+}
+
+.brand:hover .nw-mark {
+  filter: drop-shadow(0 0 12px rgb(0 229 255 / 30%));
+}
+
+/* ───────────── Typography roles ───────────── */
+
+/* Page titles: Cinzel, opened tracking, silver fading to pale moon-blue. */
+.content-heading,
+.cc-welcome-title {
+  background: linear-gradient(180deg, #f1f2f6 20%, var(--nw-moonblue) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-family: var(--font-brand);
+  font-weight: 500;
+  letter-spacing: 0.035em;
+  line-height: 1.16;
+  /* drop-shadow (not text-shadow) works with background-clip text. */
+  filter: drop-shadow(0 0 22px rgb(195 207 232 / 12%));
+}
+
+.content-heading {
+  font-size: clamp(28px, 3.6vw, 42px);
+}
+
+.cc-welcome-title {
+  /* Cinzel caps run ~25% wider than Space Grotesk: sized so the greeting stays on one line. */
+  font-size: clamp(21px, 2.35vw, 30px);
+  letter-spacing: 0.02em;
+}
+
+/* Section headings (shared SectionHeader + dialog headers): Cinzel small caps. */
+.cc-section-heading h2,
+.cc-modal-header h2,
+.dv-dialog-header h2 {
+  color: var(--nw-silver);
+  font-family: var(--font-brand);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.cc-section-heading h2 {
+  font-size: 14px;
+}
+
+/* Investigation titles: IM Fell English, a faint literary/case-file voice. */
+.cc-investigation-card h3,
+.rp-row-main strong,
+.rp-attention-copy strong,
+.rp-detail-header h2,
+.dv-card-title {
+  color: var(--nw-silver);
+  font-family: var(--font-case);
+  font-weight: 400;
+  letter-spacing: 0.012em;
+}
+
+/* Fell has a small x-height; nudge sizes up so titles stay as legible as before. */
+.cc-investigation-card h3 { font-size: 16px; }
+.rp-row-main strong { font-size: 15px; }
+.rp-attention-copy strong { font-size: 14px; letter-spacing: 0; }
+.dv-card-title { font-size: 14px; }
+.rp-detail-header h2 { font-size: clamp(22px, 2.6vw, 28px); letter-spacing: 0.005em; }
+
+/* Counters: Cinzel numerals, quiet and engraved rather than digital. */
+.cc-stat-value,
+.dv-metric strong,
+.rp-kpi strong,
+.vs-result-stat strong {
+  color: var(--nw-silver);
+  font-family: var(--font-brand);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.cc-stat-value {
+  font-size: clamp(22px, 2vw, 27px);
+}
+
+.dv-metric strong,
+.rp-kpi strong {
+  font-size: clamp(22px, 2vw, 26px);
+}
+
+.vs-result-stat strong {
+  font-size: 19px;
+}
+
+/* Eyebrows and secondary text: fog-grey, slightly receded. */
+.content-eyebrow,
+.cc-welcome-eyebrow,
+.cc-section-eyebrow {
+  letter-spacing: 0.18em;
+}
+
+.content-description,
+.cc-welcome-description {
+  color: var(--nw-fog);
+}
+
+/* Identifiers: investigations, tracks, cameras. */
+.cc-investigation-id,
+.rp-row-id,
+.vs-det-track,
+.rp-frame-detection-top span,
+.vs-hud-cam {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+}
+
+.cc-investigation-id,
+.rp-row-id {
+  color: var(--nw-moonblue);
+  font-weight: 500;
+  opacity: 0.85;
+}
+
+/* Technical figures that change: never let digits jitter. */
+.vs-threshold-value,
+.vs-timeline-time,
+.vs-log-time,
+.rp-agent-time,
+.cc-clock,
+.cc-sensor-signal,
+.cc-progress-label,
+.vs-sensor-top strong {
+  font-variant-numeric: tabular-nums;
+}
+
+/* System status: mono with brand mark. */
+.system-indicator {
+  gap: 7px;
+  padding: 6px 11px 6px 7px;
+  letter-spacing: 0.12em;
+}
+
+.system-indicator .nw-mark {
+  margin: -2px 0;
+}
+
+/* ───────────── Loader ───────────── */
+
+.nw-loader {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  color: var(--nw-muted);
+}
+
+.nw-loader-emblem {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.nw-loader-scan {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0deg, rgb(0 229 255 / 0%) 250deg, rgb(0 229 255 / 32%) 350deg, transparent 360deg);
+  mask-image: radial-gradient(circle, transparent 56%, #000 57%, #000 70%, transparent 71%);
+  animation: nw-mark-spin 1.6s linear infinite;
+}
+
+.nw-loader-emblem::before {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgb(0 229 255 / 14%);
+  border-radius: 50%;
+  content: "";
+}
+
+.nw-loader-label {
+  font-family: var(--font-brand);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+}
+
+.nw-loader-dots i {
+  font-style: normal;
+  animation: nw-dot 1.2s ease-in-out infinite;
+}
+
+.nw-loader-dots i:nth-child(2) { animation-delay: 0.2s; }
+.nw-loader-dots i:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes nw-dot {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 1; }
+}
+
+.nw-loader-detail {
+  color: var(--nw-dim);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+/* ───────────── Global polish ───────────── */
+
+/* Same specificity as index.css's focus rules and loaded later, so this replaces them. */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: none;
+  box-shadow: var(--nw-focus-ring);
+}
+
+/* Inputs inside a styled wrapper: the wrapper carries the focus state instead. */
+.dv-search input:focus-visible,
+.search-box input:focus-visible,
+.dv-filter-select select:focus-visible {
+  box-shadow: none;
+}
+
+/* Inputs show focus on their wrapper already; keep the glow consistent there. */
+.dv-search:focus-within,
+.dv-filter-select:focus-within,
+.search-box:focus-within {
+  box-shadow: 0 0 0 3px rgb(0 229 255 / 10%);
+}
+
+* {
+  scrollbar-color: #3a3054 transparent;
+  scrollbar-width: thin;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 10px;
+  background: #3a3054;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #4d4170;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nw-mark--animated .nw-mark-ring,
+  .nw-mark--animated .nw-mark-ripple,
+  .nw-loader-scan,
+  .nw-loader-dots i {
+    animation: none;
+  }
+}

@@ -1,5 +1,7 @@
 # Backend integration for the teammate's frontend
 
+**Status (2026-11-15):** the Vite frontend in `frontend/src` implements this contract: `src/lib/api.ts` (client and types), `src/lib/workspace.tsx` (polling and upload flow) and `src/components/vision-studio/useEvidence.ts` (status, frames, device events).
+
 The existing frontend is being replaced separately. These routes are frontend-framework independent. API base: https://nightwatch-api-r7mk.onrender.com. The API is live and real-video processing has been verified with the local Mac worker connected to hosted Supabase. No paid worker is deployed. Keep the local worker running while testing uploads. Do not use the Vercel URL as the Python API base.
 
 1. Authenticate with Supabase using its public URL and anon key. Retain the session access token; send `Authorization: Bearer <access_token>` to the Python API. Refresh sessions through Supabase. Never put the service-role key in frontend code.

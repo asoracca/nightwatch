@@ -13,7 +13,7 @@ accuracy: no ground truth exists yet to prove they improve recall or precision.
 import json
 import math
 
-FUSION_VERSION = 'rules-v1'  # bump when rules change; the watcher then reprocesses recent recordings
+FUSION_VERSION = 'rules-v2'  # v2: sensors also adjust scores before ByteTrack (sensor_assist.py)  # bump when rules change; the watcher then reprocesses recent recordings
 
 # Modulino Distance: readings beyond ~1300 mm are unreliable. Below ~150 mm the beam is most likely
 # blocked (hand, debris, lens cover) rather than seeing a person.
@@ -100,13 +100,18 @@ def fuse(timeline, frames, threshold, review_floor):
         sec = secs.get(int(f['timestamp_seconds']))
         if sec is None:
             continue
-        if any(d['confidence'] >= review_floor for d in f['detections_json']):
+        if any((d.get('fused_confidence') or d['confidence']) >= review_floor for d in f['detections_json']):
             sec['any_detection'] = True
         for d in f['detections_json']:
             if d['label'] != 'person':
                 continue
-            corroborated = sec['object_in_range'] is True and _central(d['bbox'])
-            score = min(1.0, d['confidence'] + CORROBORATION_BOOST) if corroborated else d['confidence']
+            if d.get('fused_confidence') is not None:
+                # Already sensor-adjusted before tracking (sensor_assist.py); do not boost twice.
+                corroborated = any(r.startswith('distance sensor') for r in d.get('sensor_reasons', []))
+                score = d['fused_confidence']
+            else:
+                corroborated = sec['object_in_range'] is True and _central(d['bbox'])
+                score = min(1.0, d['confidence'] + CORROBORATION_BOOST) if corroborated else d['confidence']
             if sec['person_score'] is None or score > sec['person_score']:
                 sec.update(person_score=round(score, 4), yolo_person=round(d['confidence'], 4),
                            corroborated=corroborated)
