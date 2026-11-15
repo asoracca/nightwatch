@@ -14,6 +14,7 @@ interface AuthState {
   signIn: (email: string, password: string) => Promise<void>
   /** Resolves to true when the account still needs email confirmation. */
   signUp: (email: string, password: string, username: string) => Promise<boolean>
+  resendConfirmation: (email: string) => Promise<void>
   signOut: () => Promise<void>
 }
 
@@ -36,6 +37,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!active) return
       if (error) setConfigError(error.message)
       setSession(data.session)
+      setReady(true)
+    }).catch(() => {
+      if (!active) return
+      setConfigError('Could not restore your session. Refresh the page or sign in again.')
       setReady(true)
     })
     // Supabase refreshes the access token itself; this keeps our copy current.
@@ -65,10 +70,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { data, error } = await supabase().auth.signUp({
           email,
           password,
-          options: { data: { username } },
+          options: { data: { username: username || email.split('@')[0] }, emailRedirectTo: window.location.origin },
         })
         if (error) throw error
         return !data.session
+      },
+      async resendConfirmation(email) {
+        const { error } = await supabase().auth.resend({ type: 'signup', email, options: { emailRedirectTo: window.location.origin } })
+        if (error) throw error
       },
       async signOut() {
         const { error } = await supabase().auth.signOut()
