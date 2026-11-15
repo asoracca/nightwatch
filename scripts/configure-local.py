@@ -7,7 +7,7 @@ import json
 from urllib.parse import urlsplit
 
 root = Path(__file__).resolve().parents[1]
-path = root / 'backend' / '.env'
+path = root / '.env'  # the single configuration file for backend, worker and frontend
 lines = (path if path.exists() else root / '.env.example').read_text().splitlines()
 values = {}
 for line in lines:
@@ -43,4 +43,4 @@ with os.fdopen(fd, 'w') as f:
     for key, value in values.items():
         f.write(f'{key}={value}\n')
 path.chmod(0o600)
-print('Saved privately to backend/.env. Run ./scripts/run-local.sh worker.')
+print('Saved privately to .env. Run ./scripts/run-local.sh worker.')

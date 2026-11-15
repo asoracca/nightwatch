@@ -3,7 +3,10 @@
 | Symptom | Check |
 |---|---|
 | Cannot install dependencies | DNS/network access to package registries; use supported Node 22/Python 3.11. The authoring environment was network-restricted. |
-| Missing frontend configuration | Set three NEXT_PUBLIC_* variables and restart Next.js; public env is embedded at build. |
+| Missing frontend configuration | Set `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `API_URL` in the repository-root `.env` and restart `npm run dev`; values are embedded at build time. |
+| “Invalid API key” at sign-in | `SUPABASE_ANON_KEY` is empty, a placeholder or from another project. Copy the anon/public key, restart the dev server. |
+| Every Vitest suite fails with “failed to find the current suite” (Windows) | Run from an uppercase drive path (`E:\nightwatch\frontend`, not `e:\...`); a lowercase drive letter loads Vitest twice. |
+| “Arduino recordings unavailable” in the Data Vault | The signed-in user cannot read `video_recordings` under RLS, or the table is missing. Uploads keep working. |
 | Signup requires confirmation | Confirm email; local config disables confirmation only for disposable development. |
 | 401 | Refresh/sign in; verify matching Supabase URL and public anon key. |
 | 404 for another user's video | Expected ownership isolation. Do not remove RLS. |

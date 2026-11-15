@@ -17,7 +17,7 @@ supabase status
 
 `db reset` is for this new disposable local project only; it erases its local database. Do not run against a shared or hosted project. The initial migration creates all tables, RLS, buckets and worker RPCs. Local email confirmation is disabled in config.toml to permit a quick demo; hosted signup should use email confirmation.
 
-Copy `.env.example` to `backend/.env`; insert the local anon and service-role keys from `supabase status` privately. With native Python use `http://127.0.0.1:54321`. With Docker Compose use `http://host.docker.internal:54321` for the backend URL. Browser env always uses `http://127.0.0.1:54321`.
+Copy `.env.example` to `.env` **in the repository root**; insert the local anon and service-role keys from `supabase status` privately. This one file configures the API, the worker, the scripts, Docker Compose and the frontend; there is no `backend/.env` or `frontend/.env.local`. With native Python use `SUPABASE_URL=http://127.0.0.1:54321`. With Docker Compose the containers need `http://host.docker.internal:54321`; set that in the Compose service `environment:` instead of changing `.env`, because the browser must keep using `http://127.0.0.1:54321`.
 
 ## 2. Model
 Docker builds download the official YOLO11n model and verify its pinned SHA256. No host model mount is needed. Keep the model settings from `.env.example`; an empty MODEL_SHA256 would override the image default and fail validation.
@@ -57,13 +57,7 @@ python -m nightwatch.worker
 Health: `http://localhost:8000/health`; OpenAPI: `http://localhost:8000/docs`. FFmpeg must be on PATH for native API **and** worker. Run one API process because its rate limiter is process-local. Multiple workers can claim separate jobs transactionally, but start with one for CPU capacity.
 
 ## 4. Frontend
-Create `frontend/.env.local` with only:
-
-```dotenv
-NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
-NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_LOCAL_ANON_KEY
-NEXT_PUBLIC_API_URL=http://localhost:8000
-```
+The frontend reads the same root `.env`. `frontend/vite.config.js` passes exactly three values to the browser: `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `API_URL` (the NightWatch API base, e.g. `http://localhost:8000`). Everything else, including the service-role key, stays server-side, and the build fails if `SUPABASE_ANON_KEY` holds a service-role key.
 
 From `frontend/`:
 
@@ -75,7 +69,9 @@ npm run build
 npm run dev
 ```
 
-Commit the generated package-lock.json after reviewing it, then use `npm ci` for subsequent installs. Never place the service-role key in `NEXT_PUBLIC_*`.
+Commit the generated package-lock.json after reviewing it, then use `npm ci` for subsequent installs. Never name a secret with a `VITE_` prefix: Vite ships every `VITE_*` value to the browser.
+
+The Vite dev server runs on `http://localhost:3000`, matching the backend default `FRONTEND_ORIGIN`. On Windows, run `npm test` from an uppercase drive path (`E:\...`); a lowercase drive letter makes Vitest load twice.
 
 ## 5. Verify
 Create two disposable accounts in the UI. Upload a 2–5 second real clip with permission to process it, preferably showing a moving person or vehicle. Do not commit the clip. Select all conditions; observe queued/processing/completed and actual bounding boxes (if the detector reports them).
@@ -115,9 +111,9 @@ The real test is skipped if required inputs are missing. A skip is **not** a pas
 
 The paid Render worker was not created. `render.yaml` now declares only the free API. The processing worker runs on your Mac and connects to the same Supabase project as the API. Keep the Mac awake and online while jobs run. No inbound tunnel or public laptop port is needed for the worker.
 
-The project-local runtime uses uv for Python 3.11 and a Pixi environment for FFmpeg. Both tool binaries, caches, libraries, model weights and test footage stay under ignored local directories. No system Python changes are required. Use `scripts/setup-local-mac.sh` on an Apple Silicon Mac to reproduce installation. Then copy `.env.example` to `backend/.env` if it does not already exist.
+The project-local runtime uses uv for Python 3.11 and a Pixi environment for FFmpeg. Both tool binaries, caches, libraries, model weights and test footage stay under ignored local directories. No system Python changes are required. Use `scripts/setup-local-mac.sh` on an Apple Silicon Mac to reproduce installation. Then copy `.env.example` to `.env` (repository root) if it does not already exist.
 
-Run `.runtime/venv/bin/python scripts/configure-local.py` to privately fill SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY in `backend/.env` (key input is hidden). Never send the service key in chat or commit it. Keep the model checksum/version defaults. The launcher overrides MODEL_PATH with the correct local path.
+Run `.runtime/venv/bin/python scripts/configure-local.py` to privately fill SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY in the root `.env` (key input is hidden). Never send the service key in chat or commit it. Keep the model checksum/version defaults. The launcher overrides MODEL_PATH with the correct local path.
 
 ```bash
 ./scripts/run-local.sh worker
@@ -130,3 +126,24 @@ Optional local API, in a second terminal:
 ```
 
 The worker remains foreground; Ctrl+C stops it. Only claim local readiness once the actual dependencies, model, connection and processing are verified.
+
+## Windows worker
+Everything stays inside the ignored `.runtime/` and `models/` folders; nothing is installed system-wide. From the repository root in PowerShell:
+
+```powershell
+py -3.12 -m venv .runtime\venv-win
+.runtime\venv-win\Scripts\python.exe -m pip install torch==2.15.0 torchvision==0.29.2 --index-url https://download.pytorch.org/whl/cpu
+.runtime\venv-win\Scripts\python.exe -m pip install -r backend\requirements.txt
+# FFmpeg: extract https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip into .runtime\ffmpeg
+#         (verify it against the published .sha256 first)
+cd backend; ..\.runtime\venv-win\Scripts\python.exe -m nightwatch.fetch_model ..\models\yolo11n.pt; cd ..
+powershell -ExecutionPolicy Bypass -File scripts\run-local.ps1          # worker (default)
+powershell -ExecutionPolicy Bypass -File scripts\run-local.ps1 api      # optional local API
+```
+
+`fetch_model` refuses weights whose SHA-256 differs from the pinned value. The launcher sets `MODEL_PATH` to `models\yolo11n.pt` for its own process only, so `.env` keeps the Docker path. Queued jobs are processed only while the worker window stays open; any one worker (this PC or a teammate's Mac) is enough.
+
+### Start everything on Windows
+`powershell -ExecutionPolicy Bypass -File scripts\start-local.ps1` opens the API (http://127.0.0.1:8000) and the worker in their own windows, then waits for `/health`. With `API_URL=http://localhost:8000` in the root `.env`, the frontend (`cd frontend; npm run dev`) uses this local API, which always runs the current code. Switch `API_URL` back to the Render URL once Render is redeployed.
+
+The worker uploads frame images in parallel, inserts frame rows in batches of 25 (only after their images are stored) and sends a heartbeat at most every 10 s: about 220 frames per minute on CPU, roughly 5× the former per-frame round-trip loop.

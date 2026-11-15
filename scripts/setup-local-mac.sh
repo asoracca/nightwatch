@@ -22,4 +22,4 @@ ffmpeg = "9.0.2.*"
 TOML
 PIXI_HOME="$ROOT/.runtime/pixi-home" PIXI_CACHE_DIR="$ROOT/.runtime/pixi-cache" XDG_CACHE_HOME="$ROOT/.runtime/cache" .runtime/pixi install --manifest-path .runtime/media/pixi.toml
 (cd backend && ../.runtime/venv/bin/python -m nightwatch.fetch_model ../models/yolo11n.pt)
-echo 'Dependencies ready. Configure backend/.env privately, then run scripts/run-local.sh worker.'
+echo 'Dependencies ready. Configure .env (repository root) privately, then run scripts/run-local.sh worker.'

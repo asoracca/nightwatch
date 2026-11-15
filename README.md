@@ -4,12 +4,12 @@ Computer-vision **prototype evaluation** of detection and tracking under poor vi
 **Not safety-certified. Does not replace rescuers. Results depend on the uploaded footage and model.**
 
 ## Status
-Supabase schema and authenticated Arduino event service are deployed. The Next.js frontend is deployed on Vercel; validation and dependency updates are recorded in [verification](docs/VERIFICATION.md). **The backend real-video upload → hosted API → local Mac worker → hosted Supabase results flow passed, including two-user API/database/storage isolation. No paid worker is used. Your Mac must stay awake with the worker running. Integration with the teammate’s frontend remains to be verified.** Source repository: https://github.com/asoracca/nightwatch. No legacy data has been copied.
+Supabase schema and authenticated Arduino event service are deployed. The Next.js frontend is deployed on Vercel; validation and dependency updates are recorded in [verification](docs/VERIFICATION.md). **The backend real-video upload → hosted API → local Mac worker → hosted Supabase results flow passed, including two-user API/database/storage isolation. No paid worker is used. Your Mac must stay awake with the worker running. The teammate’s frontend is now wired to these APIs (see FRONTEND_HANDOFF); its end-to-end run against hosted services remains to be verified.** Source repository: https://github.com/asoracca/nightwatch. No legacy data has been copied.
 
 Hardware integration: [Arduino setup and protocol](docs/HARDWARE.md). The UNO WiFi Rev2 sketch sends real motion events over TLS using a restricted, expiring device token. Camera-board image ingestion remains a separate future feature.
 
 ## Stack and structure
-- `frontend/`: Next.js App Router, React, Supabase browser auth, upload progress, private playback, overlays, review queue, comparisons.
+- `frontend/`: Vite + React SPA (Command Center, Data Vault, Vision Studio, Reports). Supabase browser auth, verified uploads with progress, job polling, private playback, detection overlays per condition, review decisions, deterministic evidence reports, Arduino recordings with sensor fusion, device registration. `frontend/api/device-events.ts` is the Vercel Function the Arduino posts to.
 - `backend/nightwatch/`: FastAPI, authenticated API, polling worker, FFmpeg/OpenCV, YOLO11n/PyTorch, ByteTrack, deterministic LangChain report.
 - `supabase/`: migrations, RLS, private buckets, transactional job functions and isolation tests.
 - `docs/`: API, development, deployment, teammate, troubleshooting and hackathon demo guides.
@@ -23,6 +23,8 @@ Hardware integration: [Arduino setup and protocol](docs/HARDWARE.md). The UNO Wi
 
 ## Evaluation semantics
 Defaults: 5 sampled FPS, CPU, accepted confidence >=0.75, review band >=0.40 and <0.75. Detection inference retains review-band observations; accepted counts exclude them. Tracks may be unassigned; IDs are scoped to job and visibility condition and must not be equated across variants. Frame numbers refer to the sampled sequence and timestamps to the FFmpeg sample timeline. All four variants use the same sampling schedule.
+
+**Sensor-assisted tracking** (`backend/nightwatch/sensor_assist.py`, on by default per job): for Arduino recordings and uploads linked to a device, distance, movement and thermal readings raise *person* scores before ByteTrack (distance +0.15, scene motion +0.10, camera shake/humidity/heat +0.05 each, capped at +0.25), so corroborated weak detections can start tracks and count as accepted or review candidates. Each detection keeps the raw model `confidence` next to `fused_confidence` and `sensor_reasons`. The weights are heuristics; no ground truth yet shows they improve recall or precision.
 
 Counts mean object observations per condition-frame, not unique people. **Miss rate is NULL without annotated ground truth.** Clear-versus-degraded counts are descriptive, not measured recall. An all-empty result is valid and does not establish absence. The use case comes from the uploader; the system does not infer which disaster is most affected.
 

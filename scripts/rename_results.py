@@ -16,7 +16,7 @@ from pathlib import Path
 
 BACKEND = Path(__file__).resolve().parents[1] / 'backend'
 sys.path.insert(0, str(BACKEND))
-os.chdir(BACKEND)  # settings() reads backend/.env relative to the working directory
+os.chdir(BACKEND)  # settings() reads the repository-root .env
 from nightwatch.domain import ProcessConfig  # noqa: E402
 from nightwatch.recordings import (COLUMNS, DEFAULT_OUT, RESULTS_BUCKET, RESULTS_TABLE, TABLE,  # noqa: E402
                                    local_result, name_to_id, publish, result_name)

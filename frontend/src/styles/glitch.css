@@ -1,0 +1,430 @@
+/*
+ * Sidebar signal-disruption glitch. Active only while [data-glitch] is set on the
+ * sidebar (see useSidebarGlitch). Only transform / filter / opacity / shadow /
+ * overlays are animated: no layout properties, and every overlay is
+ * pointer-events: none, so navigation keeps working mid-glitch.
+ *
+ * "open" (650ms), in percent of the run:
+ *    0–15%   0–100ms   signal interruption: flash, blackout, RGB split
+ *   15–38%  100–250ms  strong horizontal displacement, tearing bands, ghosting
+ *   38–62%  250–400ms  rapid bursts across logo and navigation
+ *   62–85%  400–550ms  decaying, one final flicker
+ *   85–100% 550–650ms  perfectly clean
+ * Timing is steps(1, end): interference jumps between states, it never eases.
+ *
+ * "micro" (180ms): one of logo / nav / edge / static, chosen per run.
+ * --gx (±1) flips the displacement direction per run so repeats differ.
+ */
+
+.sidebar {
+  --gx: 1;
+  --g-dur: 650ms;
+}
+
+/* Navigation glitch: the same corruption sequence, compressed to 600ms. */
+.sidebar[data-glitch="nav"] {
+  --g-dur: 600ms;
+}
+
+.sidebar[data-glitch-variant="2"] {
+  --gx: -1;
+}
+
+/* ───────────── Overlay layers ───────────── */
+
+.sidebar-glitch {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.sidebar-glitch > span {
+  position: absolute;
+  opacity: 0;
+}
+
+/* Brightness flash / blackout. Colour is animated between light and dark. */
+.sidebar-glitch-flash {
+  inset: 0;
+  background: rgb(214 226 255 / 22%);
+}
+
+/* Scanlines with a cool wash. */
+.sidebar-glitch-scan {
+  inset: -10% 0;
+  background:
+    repeating-linear-gradient(0deg, rgb(205 214 240 / 11%) 0 1px, transparent 1px 3px),
+    rgb(160 175 230 / 5%);
+}
+
+/* Digital static: baked SVG noise, jumped around with background-position. */
+.sidebar-glitch-static {
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .82 0 0 0 0 .86 0 0 0 0 1 0 0 0 1.6 -.55'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+  mix-blend-mode: screen;
+}
+
+/* Tearing bands: bright cyan / violet / silver strips that jump vertically. */
+.sidebar-glitch-bands {
+  inset: 0;
+  background:
+    linear-gradient(180deg,
+      transparent 0 14%,
+      rgb(0 229 255 / 26%) 14% 15.2%,
+      transparent 15.2% 36%,
+      rgb(220 228 255 / 20%) 36% 39%,
+      transparent 39% 61%,
+      rgb(168 85 247 / 30%) 61% 62.4%,
+      transparent 62.4% 83%,
+      rgb(0 229 255 / 18%) 83% 85.5%,
+      transparent 85.5%);
+  mix-blend-mode: screen;
+}
+
+/* Micro "static line": one noisy horizontal line crossing the sidebar. */
+.sidebar-glitch-line {
+  right: 0;
+  left: 0;
+  top: 0;
+  height: 3px;
+  background:
+    repeating-linear-gradient(90deg, rgb(230 236 255 / 85%) 0 3px, transparent 3px 5px, rgb(0 229 255 / 70%) 5px 7px, transparent 7px 11px, rgb(168 85 247 / 70%) 11px 13px, transparent 13px 17px);
+  box-shadow: 0 0 8px rgb(200 214 255 / 45%);
+}
+
+/* Right-edge tear. */
+.sidebar-glitch-edge {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 5px;
+  background: linear-gradient(180deg, rgb(0 229 255 / 75%), rgb(168 85 247 / 75%) 45%, rgb(0 229 255 / 55%) 70%, rgb(168 85 247 / 70%));
+  box-shadow: -6px 0 14px rgb(0 229 255 / 25%);
+}
+
+/* ───────────── Keyframes: opening sequence ───────────── */
+
+/* Invisible clock: its animationend tells the hook the run is over. */
+@keyframes nw-g-clock {
+  from { opacity: 1; }
+  to { opacity: 1; }
+}
+
+@keyframes nw-g-flash {
+  0% { opacity: 0; }
+  1% { opacity: 1; background-color: rgb(214 226 255 / 30%); }
+  5% { opacity: 1; background-color: rgb(3 2 10 / 62%); }
+  9% { opacity: 1; background-color: rgb(214 226 255 / 18%); }
+  13% { opacity: 0; }
+  31% { opacity: 1; background-color: rgb(3 2 10 / 40%); }
+  34% { opacity: 0; }
+  52% { opacity: 1; background-color: rgb(214 226 255 / 16%); }
+  55% { opacity: 0; }
+  75% { opacity: 1; background-color: rgb(214 226 255 / 12%); }
+  78% { opacity: 0; }
+  100% { opacity: 0; }
+}
+
+@keyframes nw-g-scan {
+  0% { opacity: 0; transform: translateY(0); }
+  2% { opacity: 1; transform: translateY(-2%); }
+  8% { opacity: 0.4; transform: translateY(3%); }
+  12% { opacity: 1; transform: translateY(-4%); }
+  20% { opacity: 0.75; transform: translateY(5%); }
+  30% { opacity: 1; transform: translateY(-1%); }
+  40% { opacity: 0.5; transform: translateY(2%); }
+  48% { opacity: 0.9; transform: translateY(-3%); }
+  58% { opacity: 0.3; transform: translateY(0); }
+  66% { opacity: 0.55; transform: translateY(1%); }
+  72% { opacity: 0; }
+  76% { opacity: 0.45; transform: translateY(-1%); }
+  80% { opacity: 0; }
+  100% { opacity: 0; transform: translateY(0); }
+}
+
+@keyframes nw-g-static {
+  0% { opacity: 0; }
+  2% { opacity: 0.6; background-position: 0 0; }
+  6% { opacity: 0.3; background-position: 47px 113px; }
+  10% { opacity: 0.65; background-position: -71px 29px; }
+  15% { opacity: 0.2; background-position: 23px -61px; }
+  19% { opacity: 0; }
+  41% { opacity: 0.45; background-position: 90px 41px; }
+  46% { opacity: 0.15; background-position: -33px -97px; }
+  50% { opacity: 0; }
+  76% { opacity: 0.3; background-position: 12px 77px; }
+  79% { opacity: 0; }
+  100% { opacity: 0; }
+}
+
+@keyframes nw-g-bands {
+  0% { opacity: 0; transform: translateY(0) scaleY(1); }
+  15% { opacity: 1; transform: translateY(-6%) scaleY(1); }
+  20% { opacity: 0.7; transform: translateY(18%) scaleY(1.8); }
+  25% { opacity: 1; transform: translateY(-22%) scaleY(0.7); }
+  30% { opacity: 0.8; transform: translateY(9%) scaleY(1.3); }
+  35% { opacity: 1; transform: translateY(31%) scaleY(1); }
+  40% { opacity: 0.4; transform: translateY(-12%) scaleY(2); }
+  46% { opacity: 0.8; transform: translateY(4%) scaleY(1); }
+  52% { opacity: 0.3; transform: translateY(-28%) scaleY(1.4); }
+  58% { opacity: 0; }
+  100% { opacity: 0; transform: translateY(0) scaleY(1); }
+}
+
+@keyframes nw-g-edge {
+  0% { opacity: 0; clip-path: inset(0 0 100% 0); transform: translateX(0); }
+  3% { opacity: 1; clip-path: inset(4% 0 70% 0); transform: translateX(-6px); }
+  10% { opacity: 1; clip-path: inset(40% 0 22% 0); transform: translateX(2px); }
+  18% { opacity: 0.9; clip-path: inset(66% 0 6% 0); transform: translateX(-9px); }
+  26% { opacity: 1; clip-path: inset(18% 0 52% 0); transform: translateX(-3px); }
+  34% { opacity: 0.8; clip-path: inset(0 0 0 0); transform: translateX(-12px); }
+  40% { opacity: 1; clip-path: inset(55% 0 30% 0); transform: translateX(0); }
+  48% { opacity: 0.7; clip-path: inset(8% 0 80% 0); transform: translateX(-5px); }
+  56% { opacity: 0.9; clip-path: inset(74% 0 10% 0); transform: translateX(-2px); }
+  64% { opacity: 0; }
+  76% { opacity: 0.6; clip-path: inset(30% 0 60% 0); transform: translateX(-3px); }
+  80% { opacity: 0; }
+  100% { opacity: 0; clip-path: inset(0 0 100% 0); transform: translateX(0); }
+}
+
+/* NIGHTWATCH wordmark: strong RGB split with far ghosts, skew and blackout. */
+@keyframes nw-g-wordmark {
+  0% { opacity: 1; text-shadow: var(--nw-moon-glow); transform: translateX(0) skewX(0); }
+  2% { text-shadow: -5px 0 rgb(0 229 255 / 90%), 5px 0 rgb(168 85 247 / 90%); transform: translateX(calc(var(--gx) * 3px)); }
+  6% { opacity: 0.25; text-shadow: none; transform: translateX(0); }
+  10% { opacity: 1; text-shadow: -9px 0 rgb(0 229 255 / 85%), 9px 0 rgb(168 85 247 / 85%), 0 0 14px rgb(230 236 255 / 50%); transform: translateX(calc(var(--gx) * -5px)) skewX(-14deg); }
+  16% { text-shadow: -3px 1px rgb(0 229 255 / 90%), 4px -1px rgb(168 85 247 / 90%); transform: translateX(calc(var(--gx) * 8px)); }
+  22% { text-shadow: -11px 0 rgb(0 229 255 / 65%), 11px 0 rgb(168 85 247 / 65%), -24px 0 rgb(0 229 255 / 28%), 24px 0 rgb(168 85 247 / 28%); transform: translateX(calc(var(--gx) * -3px)); }
+  28% { text-shadow: 3px 0 rgb(0 229 255 / 90%), -3px 0 rgb(168 85 247 / 90%); transform: translateX(calc(var(--gx) * 5px)) skewX(8deg); }
+  34% { opacity: 0.55; text-shadow: -7px 0 rgb(0 229 255 / 80%), 7px 0 rgb(168 85 247 / 80%); transform: translateX(calc(var(--gx) * -8px)) skewX(12deg); }
+  40% { opacity: 1; text-shadow: var(--nw-moon-glow); transform: translateX(0) skewX(0); }
+  44% { text-shadow: -5px 0 rgb(0 229 255 / 85%), 5px 0 rgb(168 85 247 / 85%), -14px 0 rgb(0 229 255 / 25%); transform: translateX(calc(var(--gx) * 5px)); }
+  48% { text-shadow: none; transform: translateX(calc(var(--gx) * -2px)); }
+  53% { text-shadow: -8px 0 rgb(0 229 255 / 75%), 8px 0 rgb(168 85 247 / 75%); transform: translateX(calc(var(--gx) * -5px)) skewX(-6deg); }
+  58% { text-shadow: -2px 0 rgb(0 229 255 / 70%), 2px 0 rgb(168 85 247 / 70%); transform: translateX(calc(var(--gx) * 2px)); }
+  64% { text-shadow: var(--nw-moon-glow); transform: translateX(0); }
+  76% { text-shadow: -4px 0 rgb(0 229 255 / 70%), 4px 0 rgb(168 85 247 / 70%); transform: translateX(calc(var(--gx) * 2px)); }
+  80%, 100% { opacity: 1; text-shadow: var(--nw-moon-glow); transform: translateX(0) skewX(0); }
+}
+
+/* Symbol: chromatic ghosts, colour shift and jumps. */
+@keyframes nw-g-mark {
+  0% { filter: none; transform: translateX(0); }
+  2% { filter: drop-shadow(-4px 0 rgb(0 229 255 / 90%)) drop-shadow(4px 0 rgb(168 85 247 / 90%)) brightness(1.6); transform: translateX(calc(var(--gx) * 2px)); }
+  6% { filter: brightness(0.3); transform: translateX(0); }
+  12% { filter: drop-shadow(-7px 0 rgb(0 229 255 / 80%)) drop-shadow(7px 0 rgb(168 85 247 / 80%)) hue-rotate(40deg); transform: translateX(calc(var(--gx) * -5px)); }
+  20% { filter: drop-shadow(5px 0 rgb(0 229 255 / 70%)) drop-shadow(-5px 0 rgb(168 85 247 / 70%)) contrast(1.6); transform: translateX(calc(var(--gx) * 4px)); }
+  30% { filter: hue-rotate(-50deg) saturate(2); transform: translateX(calc(var(--gx) * -2px)); }
+  40% { filter: none; transform: translateX(0); }
+  46% { filter: drop-shadow(-5px 0 rgb(0 229 255 / 80%)) drop-shadow(5px 0 rgb(168 85 247 / 80%)); transform: translateX(calc(var(--gx) * 3px)); }
+  54% { filter: brightness(1.5) hue-rotate(30deg); transform: translateX(calc(var(--gx) * -3px)); }
+  62% { filter: none; transform: translateX(0); }
+  76% { filter: drop-shadow(-3px 0 rgb(0 229 255 / 70%)) drop-shadow(3px 0 rgb(168 85 247 / 70%)); transform: translateX(1px); }
+  80%, 100% { filter: none; transform: translateX(0); }
+}
+
+/* Section tearing: each block of the sidebar is displaced on its own timing. */
+@keyframes nw-g-tear-a {
+  0% { transform: translateX(0); filter: none; }
+  1% { transform: translateX(calc(var(--gx) * -4px)); filter: brightness(1.7) contrast(1.4); }
+  6% { transform: translateX(0); filter: brightness(0.45); }
+  12% { transform: translateX(calc(var(--gx) * 9px)) skewX(-6deg); filter: brightness(1.25) contrast(1.6); }
+  18% { transform: translateX(calc(var(--gx) * -11px)); filter: contrast(1.3); }
+  24% { transform: translateX(calc(var(--gx) * 4px)); filter: none; }
+  30% { transform: translateX(calc(var(--gx) * -6px)) skewX(5deg); filter: brightness(1.4); }
+  38% { transform: translateX(0); filter: none; }
+  44% { transform: translateX(calc(var(--gx) * 6px)); }
+  48% { transform: translateX(calc(var(--gx) * -3px)); filter: contrast(1.5); }
+  54% { transform: translateX(calc(var(--gx) * 4px)); filter: brightness(1.35); }
+  60% { transform: translateX(0); filter: none; }
+  76% { transform: translateX(calc(var(--gx) * -2px)); filter: brightness(1.3); }
+  80%, 100% { transform: translateX(0); filter: none; }
+}
+
+@keyframes nw-g-tear-b {
+  0% { transform: translateX(0); filter: none; }
+  4% { transform: translateX(calc(var(--gx) * 5px)); filter: brightness(1.5) contrast(1.3); }
+  8% { transform: translateX(0); filter: brightness(0.5); }
+  16% { transform: translateX(calc(var(--gx) * -12px)); filter: contrast(1.5); }
+  22% { transform: translateX(calc(var(--gx) * 7px)) skewX(4deg); filter: brightness(1.3); }
+  28% { transform: translateX(calc(var(--gx) * -3px)); filter: none; }
+  36% { transform: translateX(calc(var(--gx) * 8px)); filter: hue-rotate(25deg) contrast(1.3); }
+  42% { transform: translateX(0); filter: none; }
+  50% { transform: translateX(calc(var(--gx) * -5px)); filter: brightness(1.3); }
+  56% { transform: translateX(calc(var(--gx) * 3px)); }
+  62% { transform: translateX(0); filter: none; }
+  77% { transform: translateX(calc(var(--gx) * 2px)); }
+  80%, 100% { transform: translateX(0); filter: none; }
+}
+
+@keyframes nw-g-tear-c {
+  0%, 9% { transform: translateX(0); }
+  10% { transform: translateX(calc(var(--gx) * -6px)); }
+  20% { transform: translateX(calc(var(--gx) * 4px)); }
+  26% { transform: translateX(0); }
+  46% { transform: translateX(calc(var(--gx) * -4px)); }
+  52%, 100% { transform: translateX(0); }
+}
+
+/* Chromatic aberration on every nav label through the strong phases. */
+@keyframes nw-g-chroma {
+  0%, 100% { text-shadow: none; }
+  2% { text-shadow: -2px 0 rgb(0 229 255 / 70%), 2px 0 rgb(168 85 247 / 70%); }
+  6% { text-shadow: none; }
+  14% { text-shadow: -3px 0 rgb(0 229 255 / 65%), 3px 0 rgb(168 85 247 / 65%); }
+  26% { text-shadow: 2px 0 rgb(0 229 255 / 60%), -2px 0 rgb(168 85 247 / 60%); }
+  38% { text-shadow: none; }
+  46% { text-shadow: -2px 0 rgb(0 229 255 / 60%), 2px 0 rgb(168 85 247 / 60%); }
+  56% { text-shadow: none; }
+}
+
+@keyframes nw-g-icon {
+  0%, 100% { filter: none; transform: translateX(0); }
+  4% { filter: drop-shadow(-2px 0 rgb(0 229 255 / 90%)) drop-shadow(2px 0 rgb(168 85 247 / 90%)); }
+  16% { filter: drop-shadow(3px 0 rgb(0 229 255 / 80%)) drop-shadow(-3px 0 rgb(168 85 247 / 80%)); transform: translateX(calc(var(--gx) * 3px)); }
+  30% { filter: none; transform: translateX(calc(var(--gx) * -2px)); }
+  46% { filter: drop-shadow(-2px 0 rgb(0 229 255 / 80%)) drop-shadow(2px 0 rgb(168 85 247 / 80%)); transform: translateX(0); }
+  56% { filter: none; }
+}
+
+/* The two "hit" nav items get violent label bursts. */
+@keyframes nw-g-burst {
+  0%, 100% { transform: translateX(0) skewX(0); opacity: 1; }
+  38% { transform: translateX(0); }
+  40% { transform: translateX(calc(var(--gx) * 10px)) skewX(-12deg); opacity: 0.6; }
+  44% { transform: translateX(calc(var(--gx) * -7px)); opacity: 1; }
+  48% { transform: translateX(calc(var(--gx) * 5px)) skewX(10deg); }
+  52% { transform: translateX(calc(var(--gx) * -12px)); opacity: 0.4; }
+  56% { transform: translateX(calc(var(--gx) * 3px)); opacity: 1; }
+  60% { transform: translateX(0) skewX(0); }
+}
+
+/* ───────────── Opening + navigation sequence wiring ───────────── */
+
+.sidebar:is([data-glitch="open"], [data-glitch="nav"]) .sidebar-glitch { animation: nw-g-clock var(--g-dur) linear both; }
+.sidebar:is([data-glitch="open"], [data-glitch="nav"]) .sidebar-glitch-flash { animation: nw-g-flash var(--g-dur) steps(1, end) both; }
+.sidebar:is([data-glitch="open"], [data-glitch="nav"]) .sidebar-glitch-scan { animation: nw-g-scan var(--g-dur) steps(1, end) both; }
+.sidebar:is([data-glitch="open"], [data-glitch="nav"]) .sidebar-glitch-static { animation: nw-g-static var(--g-dur) steps(1, end) both; }
+.sidebar:is([data-glitch="open"], [data-glitch="nav"]) .sidebar-glitch-bands { animation: nw-g-bands var(--g-dur) steps(1, end) both; }
+.sidebar:is([data-glitch="open"], [data-glitch="nav"]) .sidebar-glitch-edge { animation: nw-g-edge var(--g-dur) steps(1, end) both; }
+
+.sidebar:is([data-glitch="open"], [data-glitch="nav"]) .nw-wordmark-name { animation: nw-g-wordmark var(--g-dur) steps(1, end) both; }
+.sidebar:is([data-glitch="open"], [data-glitch="nav"]) .brand .nw-mark { animation: nw-g-mark var(--g-dur) steps(1, end) both; }
+
+.sidebar:is([data-glitch="open"], [data-glitch="nav"]) .brand { animation: nw-g-tear-a var(--g-dur) steps(1, end) both; }
+.sidebar:is([data-glitch="open"], [data-glitch="nav"]) .primary-nav { animation: nw-g-tear-b var(--g-dur) steps(1, end) both; }
+.sidebar:is([data-glitch="open"], [data-glitch="nav"]) .nav-caption,
+.sidebar:is([data-glitch="open"], [data-glitch="nav"]) .sidebar-footer { animation: nw-g-tear-c var(--g-dur) steps(1, end) both; }
+
+.sidebar:is([data-glitch="open"], [data-glitch="nav"]) .nav-link-label { animation: nw-g-chroma var(--g-dur) steps(1, end) both; }
+.sidebar:is([data-glitch="open"], [data-glitch="nav"]) .nav-link-icon { animation: nw-g-icon var(--g-dur) steps(1, end) both; }
+
+/* Opening: two nav labels burst; which two varies with the run's target. */
+.sidebar[data-glitch="open"][data-glitch-target="1"] .nav-item:is(:nth-child(1), :nth-child(3)) .nav-link-label,
+.sidebar[data-glitch="open"][data-glitch-target="2"] .nav-item:is(:nth-child(2), :nth-child(4)) .nav-link-label,
+.sidebar[data-glitch="open"][data-glitch-target="3"] .nav-item:is(:nth-child(1), :nth-child(4)) .nav-link-label,
+.sidebar[data-glitch="open"][data-glitch-target="4"] .nav-item:is(:nth-child(2), :nth-child(3)) .nav-link-label {
+  animation: nw-g-chroma var(--g-dur) steps(1, end) both, nw-g-burst var(--g-dur) steps(1, end) both;
+}
+
+/* Navigation: the item that was clicked takes the hardest hit (label + icon). */
+.sidebar[data-glitch="nav"][data-glitch-target="1"] .nav-item:nth-child(1) :is(.nav-link-label, .nav-link-icon),
+.sidebar[data-glitch="nav"][data-glitch-target="2"] .nav-item:nth-child(2) :is(.nav-link-label, .nav-link-icon),
+.sidebar[data-glitch="nav"][data-glitch-target="3"] .nav-item:nth-child(3) :is(.nav-link-label, .nav-link-icon),
+.sidebar[data-glitch="nav"][data-glitch-target="4"] .nav-item:nth-child(4) :is(.nav-link-label, .nav-link-icon) {
+  animation: nw-g-chroma var(--g-dur) steps(1, end) both, nw-g-hit var(--g-dur) steps(1, end) both;
+}
+
+/* Clicked item: displaced from the very first frames, then bursts, then settles. */
+@keyframes nw-g-hit {
+  0% { transform: translateX(0) skewX(0); opacity: 1; }
+  2% { transform: translateX(calc(var(--gx) * 8px)) skewX(-14deg); opacity: 0.55; }
+  7% { transform: translateX(calc(var(--gx) * -6px)); opacity: 1; }
+  14% { transform: translateX(calc(var(--gx) * 12px)) skewX(10deg); }
+  22% { transform: translateX(calc(var(--gx) * -10px)); opacity: 0.5; }
+  30% { transform: translateX(calc(var(--gx) * 5px)) skewX(-6deg); opacity: 1; }
+  40% { transform: translateX(calc(var(--gx) * 9px)); }
+  46% { transform: translateX(calc(var(--gx) * -7px)) skewX(12deg); opacity: 0.6; }
+  54% { transform: translateX(calc(var(--gx) * 3px)); opacity: 1; }
+  62% { transform: translateX(0) skewX(0); }
+  76% { transform: translateX(calc(var(--gx) * 2px)); }
+  80%, 100% { transform: translateX(0) skewX(0); opacity: 1; }
+}
+
+/* ───────────── Micro-glitches (180ms) ───────────── */
+
+@keyframes nw-g-micro-rgb {
+  0%, 100% { text-shadow: var(--nw-moon-glow); transform: translateX(0); }
+  10% { text-shadow: -6px 0 rgb(0 229 255 / 85%), 6px 0 rgb(168 85 247 / 85%); transform: translateX(calc(var(--gx) * 4px)) skewX(-10deg); }
+  35% { text-shadow: 3px 0 rgb(0 229 255 / 80%), -3px 0 rgb(168 85 247 / 80%); transform: translateX(calc(var(--gx) * -3px)); }
+  60% { text-shadow: -4px 0 rgb(0 229 255 / 60%), 4px 0 rgb(168 85 247 / 60%), -12px 0 rgb(0 229 255 / 25%); transform: translateX(1px); }
+  80% { text-shadow: var(--nw-moon-glow); transform: translateX(0); }
+}
+
+@keyframes nw-g-micro-burst {
+  0%, 100% { transform: translateX(0) skewX(0); text-shadow: none; filter: none; }
+  10% { transform: translateX(calc(var(--gx) * 9px)) skewX(-12deg); text-shadow: -3px 0 rgb(0 229 255 / 80%), 3px 0 rgb(168 85 247 / 80%); }
+  40% { transform: translateX(calc(var(--gx) * -6px)); text-shadow: 2px 0 rgb(0 229 255 / 70%), -2px 0 rgb(168 85 247 / 70%); }
+  65% { transform: translateX(2px); text-shadow: none; }
+  80% { transform: translateX(0) skewX(0); }
+}
+
+@keyframes nw-g-micro-edge {
+  0%, 100% { opacity: 0; clip-path: inset(0 0 100% 0); transform: translateX(0); }
+  10% { opacity: 1; clip-path: inset(20% 0 55% 0); transform: translateX(-8px); }
+  40% { opacity: 1; clip-path: inset(58% 0 18% 0); transform: translateX(-3px); }
+  70% { opacity: 0.6; clip-path: inset(5% 0 85% 0); transform: translateX(-5px); }
+  85% { opacity: 0; }
+}
+
+@keyframes nw-g-micro-line {
+  0%, 100% { opacity: 0; transform: translateY(0); }
+  8% { opacity: 1; transform: translateY(var(--line-y, 30vh)) scaleX(1); }
+  35% { opacity: 0.8; transform: translateY(calc(var(--line-y, 30vh) + 6px)) translateX(-12px); }
+  60% { opacity: 1; transform: translateY(calc(var(--line-y, 30vh) - 4px)) translateX(8px); }
+  85% { opacity: 0; }
+}
+
+@keyframes nw-g-micro-static {
+  0%, 100% { opacity: 0; }
+  10% { opacity: 0.35; background-position: 0 0; }
+  45% { opacity: 0.2; background-position: 61px -37px; }
+  75% { opacity: 0; }
+}
+
+.sidebar[data-glitch="micro"] .sidebar-glitch { animation: nw-g-clock 180ms linear both; }
+
+/* Logo */
+.sidebar[data-glitch-micro="logo"] .nw-wordmark-name { animation: nw-g-micro-rgb 180ms steps(1, end) both; }
+.sidebar[data-glitch-micro="logo"] .brand .nw-mark { animation: nw-g-mark 180ms steps(1, end) both; }
+
+/* One nav item */
+.sidebar[data-glitch-micro="nav"][data-glitch-target="1"] .nav-item:nth-child(1) .nav-link,
+.sidebar[data-glitch-micro="nav"][data-glitch-target="2"] .nav-item:nth-child(2) .nav-link,
+.sidebar[data-glitch-micro="nav"][data-glitch-target="3"] .nav-item:nth-child(3) .nav-link,
+.sidebar[data-glitch-micro="nav"][data-glitch-target="4"] .nav-item:nth-child(4) .nav-link {
+  animation: nw-g-micro-burst 180ms steps(1, end) both;
+}
+
+/* Edge */
+.sidebar[data-glitch-micro="edge"] .sidebar-glitch-edge { animation: nw-g-micro-edge 180ms steps(1, end) both; }
+
+/* Horizontal static line (its height varies with the run's target). */
+.sidebar[data-glitch-target="1"] { --line-y: 18vh; }
+.sidebar[data-glitch-target="2"] { --line-y: 37vh; }
+.sidebar[data-glitch-target="3"] { --line-y: 56vh; }
+.sidebar[data-glitch-target="4"] { --line-y: 74vh; }
+
+.sidebar[data-glitch-micro="static"] .sidebar-glitch-line { animation: nw-g-micro-line 180ms steps(1, end) both; }
+.sidebar[data-glitch-micro="static"] .sidebar-glitch-static { animation: nw-g-micro-static 180ms steps(1, end) both; }
+
+/* Belt and braces: the hook never sets data-glitch under reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-glitch {
+    display: none;
+  }
+}

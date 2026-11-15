@@ -1,0 +1,496 @@
+/* ───────────────── Cinematic experience layer ───────────────── */
+
+/* Stacking: backdrop (0) < application (1) < intro (100). */
+.app-stage {
+  position: relative;
+  z-index: 1;
+}
+
+.nw-canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Persistent backdrop ------------------------------------------------ */
+
+.nw-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: #07051a;
+}
+
+.nw-backdrop-canvas {
+  position: absolute;
+  inset: 0;
+}
+
+/* Keeps text readable: darker behind the sidebar/content start, lighter at the far edge. */
+.nw-backdrop-scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgb(9 6 23 / 62%) 0%, rgb(9 6 23 / 30%) 38%, rgb(9 6 23 / 4%) 78%, rgb(9 6 23 / 14%) 100%),
+    linear-gradient(180deg, rgb(9 6 23 / 0%) 0%, rgb(9 6 23 / 0%) 35%, rgb(9 6 23 / 42%) 100%);
+}
+
+.nw-static-backdrop {
+  /* Moon centre sits just behind the topbar so only its lower half shows, clear of header controls. */
+  --moon-x: 76%;
+  --moon-y: 5%;
+  --sky-light: 1;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.nw-static-backdrop--guardian { --moon-x: 40%; --moon-y: 5%; --sky-light: 0.85; }
+.nw-static-backdrop--entity { --moon-x: 72%; --moon-y: 6%; --sky-light: 1.1; }
+.nw-static-backdrop--archive { --moon-x: 82%; --moon-y: 4%; --sky-light: 0.75; }
+
+.nw-static-sky {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at var(--moon-x) var(--moon-y), rgb(185 198 228 / calc(0.16 * var(--sky-light))), transparent 28%),
+    linear-gradient(180deg, #05050b 0%, #0c0d18 45%, #1a1b2c 70%, #0c0c14 100%);
+}
+
+.nw-static-moon {
+  position: absolute;
+  top: var(--moon-y);
+  left: var(--moon-x);
+  width: min(17vh, 150px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 40% 38%, rgb(96 104 124 / 35%) 0 12%, transparent 13%),
+    radial-gradient(circle at 62% 58%, rgb(96 104 124 / 28%) 0 16%, transparent 17%),
+    radial-gradient(circle at 42% 40%, #f4f2ea, #d9dbe0 60%, #9ea6b8 100%);
+  box-shadow: 0 0 60px 10px rgb(185 198 228 / 18%), 0 0 180px 60px rgb(185 198 228 / 7%);
+  opacity: calc(0.9 * var(--sky-light));
+  transform: translate(-50%, -50%);
+  transition: top 1.2s ease, left 1.2s ease;
+}
+
+.nw-static-clouds span {
+  position: absolute;
+  height: 26vh;
+  border-radius: 50%;
+  /* Soft gradient edges instead of filter: blur — an animated blur repaints every frame. */
+  background: radial-gradient(ellipse at 50% 60%, rgb(12 13 22 / 92%), rgb(12 13 22 / 45%) 40%, rgb(12 13 22 / 0%) 70%);
+  animation: nw-cloud-drift 90s linear infinite;
+  will-change: transform;
+}
+
+.nw-static-clouds span:nth-child(1) { top: 2%; left: -30%; width: 70vw; }
+.nw-static-clouds span:nth-child(2) { top: 14%; left: 10%; width: 60vw; animation-duration: 120s; animation-delay: -40s; }
+.nw-static-clouds span:nth-child(3) { top: -6%; left: 40%; width: 80vw; animation-duration: 150s; animation-delay: -90s; }
+
+@keyframes nw-cloud-drift {
+  from { transform: translateX(-20vw); }
+  to { transform: translateX(60vw); }
+}
+
+.nw-static-land {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 44vh;
+}
+
+.nw-land-far { fill: #151726; }
+.nw-land-mid { fill: #0c0d17; }
+.nw-land-near { fill: #050509; }
+
+.nw-land-trees path {
+  fill: none;
+  stroke: #07070d;
+  stroke-linecap: round;
+  stroke-width: 4;
+}
+
+.nw-static-fog {
+  position: absolute;
+  right: 0;
+  bottom: 12vh;
+  left: 0;
+  height: 18vh;
+  background: linear-gradient(180deg, transparent, rgb(58 63 88 / 22%) 50%, transparent);
+  filter: blur(8px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nw-static-clouds span {
+    animation: none;
+  }
+}
+
+/* Replay control (sidebar) */
+.replay-intro {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  justify-self: start;
+  margin: -4px 0 0 11px;
+  padding: 3px 0;
+  border: 0;
+  background: transparent;
+  color: var(--nw-dim);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: color var(--nw-motion-fast) ease;
+}
+
+.replay-intro:hover {
+  color: var(--nw-cyan);
+}
+
+/* Launch intro (~1s) ---------------------------------------------- */
+
+.nw-launch {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  /* Same night tone as the backdrop's sky, so the fade reads as clearing mist, not a cut. */
+  background: radial-gradient(ellipse 80% 70% at 50% 45%, #0b0c16 0%, #05050b 70%);
+  pointer-events: none;
+}
+
+.nw-launch-glow {
+  position: absolute;
+  top: 45%;
+  left: 50%;
+  width: min(120vmin, 1100px);
+  aspect-ratio: 1;
+  margin: calc(min(120vmin, 1100px) / -2) 0 0 calc(min(120vmin, 1100px) / -2);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(185 198 228 / 22%) 0%, rgb(140 150 190 / 9%) 22%, rgb(90 80 140 / 4%) 42%, transparent 62%);
+}
+
+.nw-launch-glow--static {
+  opacity: 0.8;
+}
+
+.nw-launch-mist {
+  position: absolute;
+  left: -20%;
+  width: 140%;
+  height: 34vh;
+  border-radius: 50%;
+  /* Soft by construction — no filter: blur on a full-width layer (expensive every frame). */
+  background: radial-gradient(ellipse 50% 50% at 50% 50%, rgb(160 172 206 / 14%), rgb(160 172 206 / 5%) 45%, transparent 70%);
+}
+
+.nw-launch-mist--a { top: 30%; }
+.nw-launch-mist--b { top: 50%; height: 24vh; }
+
+.nw-launch-lockup {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: clamp(16px, 2.6vh, 26px);
+  /* Optical centre slightly above middle. */
+  transform: translateY(-3vh);
+}
+
+.nw-launch-symbol {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.nw-launch-mark {
+  width: clamp(72px, 13vmin, 112px);
+  height: auto;
+  /* Slightly cooled so the mark sits in moonlight rather than neon. */
+  filter: saturate(0.82) drop-shadow(0 0 22px rgb(185 198 228 / 22%));
+}
+
+.nw-launch-mote {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  margin: -1px 0 0 -1px;
+  border-radius: 50%;
+  background: #dfe6f7;
+  box-shadow: 0 0 6px rgb(223 230 247 / 70%);
+}
+
+.nw-launch-word {
+  padding-left: 0.34em;
+  color: #e6e9f1;
+  font-family: var(--font-brand);
+  font-size: clamp(20px, 3.8vw, 38px);
+  font-weight: 600;
+  letter-spacing: 0.34em;
+  line-height: 1;
+  /* Faint moonlight: a tight silver halo plus a wide, cold bloom. */
+  text-shadow: 0 0 14px rgb(195 207 232 / 32%), 0 0 44px rgb(150 160 205 / 16%);
+  white-space: nowrap;
+}
+
+.nw-launch-letter {
+  display: inline-block;
+}
+
+/* Light sweep inside BrandMark (masked to its strokes). */
+.nw-mark-sweep {
+  animation: nw-mark-sweep 0.4s 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@keyframes nw-mark-sweep {
+  from { transform: translateX(0); }
+  to { transform: translateX(78px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nw-mark-sweep {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+/* Foreground clouds ------------------------------------------------ */
+/*
+ * Sits above the whole app (app-stage is z-index 1) and below the launch intro (100).
+ * Each drifting layer is wider than the viewport by exactly one texture tile and
+ * slides by one tile per loop, so the motion is seamless. Transform-only animation.
+ */
+
+.nw-fg-clouds {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  overflow: hidden;
+  pointer-events: none;
+  /*
+   * Readability mask (layers multiply via intersect): thinner over the central content,
+   * over the sidebar's navigation column, and over the topbar's text row; full strength
+   * over empty sky, gutters and the lower corners.
+   */
+  --fg-mask:
+    radial-gradient(ellipse 60% 55% at 56% 56%, rgb(0 0 0 / 42%) 0%, rgb(0 0 0 / 68%) 55%, #000 100%),
+    radial-gradient(ellipse 200px 210px at 140px 230px, rgb(0 0 0 / 30%) 0%, rgb(0 0 0 / 38%) 55%, #000 100%),
+    linear-gradient(180deg, rgb(0 0 0 / 50%) 0, rgb(0 0 0 / 50%) 64px, #000 140px);
+  -webkit-mask-image: var(--fg-mask);
+  mask-image: var(--fg-mask);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+}
+
+.nw-fg-layer {
+  position: absolute;
+  left: 0;
+  width: calc(100% + var(--tile-w));
+  background-image: var(--tex);
+  background-repeat: repeat-x;
+  background-size: var(--tile-w) 100%;
+  animation: nw-fg-drift var(--dur) linear infinite;
+  will-change: transform;
+}
+
+@keyframes nw-fg-drift {
+  from { transform: translate3d(calc(-1 * var(--tile-w)), 0, 0); }
+  to { transform: translate3d(0, 0, 0); }
+}
+
+/* Far: high, slow. */
+.nw-fg-layer--far {
+  --tile-w: 1150px;
+  --dur: 220s;
+  top: -8vh;
+  height: 50vh;
+  opacity: 0.15;
+}
+
+/* Mid: larger, a little faster — the depth contrast against the far layer. */
+.nw-fg-layer--mid {
+  --tile-w: 1650px;
+  --dur: 135s;
+  top: 22vh;
+  height: 72vh;
+  opacity: 0.11;
+}
+
+/* Pale moonlit tops riding the mid layer (same tile and speed, texture lifted). */
+.nw-fg-layer--lit {
+  --tile-w: 1650px;
+  --dur: 135s;
+  top: 22vh;
+  height: 72vh;
+  opacity: 0.06;
+}
+
+/* An occasional nearer formation passing across, then a quiet gap. */
+.nw-fg-pass {
+  position: absolute;
+  top: 6vh;
+  left: 0;
+  width: 92vw;
+  height: 62vh;
+  background: var(--tex) center / 100% 100% no-repeat;
+  opacity: 0.16;
+  transform: translate3d(-110vw, 0, 0);
+  animation: nw-fg-pass 100s linear -22s infinite;
+  will-change: transform;
+}
+
+@keyframes nw-fg-pass {
+  0% { transform: translate3d(-110vw, 0, 0); }
+  68% { transform: translate3d(118vw, 0, 0); }
+  100% { transform: translate3d(118vw, 0, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nw-fg-layer {
+    animation: none;
+    transform: translate3d(calc(-0.5 * var(--tile-w)), 0, 0);
+  }
+
+  .nw-fg-pass {
+    display: none;
+  }
+}
+
+/* Sound control (topbar) -------------------------------------------- */
+
+.sound-control {
+  position: relative;
+}
+
+.sound-button[data-enabled="true"] {
+  color: #9fe3ef;
+}
+
+.sound-panel {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  z-index: 30;
+  display: grid;
+  width: 236px;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgb(195 207 232 / 16%);
+  border-radius: 14px;
+  background: rgb(14 15 28 / 92%);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 18px 40px rgb(0 0 0 / 45%);
+}
+
+.sound-panel-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sound-panel-title {
+  display: grid;
+  gap: 2px;
+  color: var(--nw-silver);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.sound-panel-title small {
+  color: var(--nw-dim);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+
+.sound-switch {
+  position: relative;
+  width: 38px;
+  height: 22px;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 1px solid rgb(195 207 232 / 22%);
+  border-radius: 99px;
+  background: rgb(255 255 255 / 6%);
+  cursor: pointer;
+  transition: background-color 180ms ease, border-color 180ms ease;
+}
+
+.sound-switch span {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--nw-fog);
+  transition: transform 180ms ease, background-color 180ms ease;
+}
+
+.sound-switch[aria-checked="true"] {
+  border-color: rgb(126 238 250 / 45%);
+  background: rgb(126 238 250 / 18%);
+}
+
+.sound-switch[aria-checked="true"] span {
+  background: #bff3f9;
+  transform: translateX(16px);
+}
+
+.sound-volume {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: -6px;
+  color: var(--nw-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sound-volume output {
+  color: var(--nw-silver);
+  font-variant-numeric: tabular-nums;
+}
+
+.sound-slider {
+  width: 100%;
+  height: 4px;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #7eeefa var(--fill), rgb(255 255 255 / 10%) var(--fill));
+  cursor: pointer;
+  appearance: none;
+}
+
+.sound-slider:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.sound-slider::-webkit-slider-thumb {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #0e0f1c;
+  border-radius: 50%;
+  background: #dfe8ff;
+  appearance: none;
+}
+
+.sound-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 2px solid #0e0f1c;
+  border-radius: 50%;
+  background: #dfe8ff;
+}

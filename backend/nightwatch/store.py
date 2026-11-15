@@ -30,6 +30,20 @@ class Store:
     def insert(self, table, data):
         return self.request('POST', '/rest/v1/' + table, json=data, headers={'Prefer':'return=representation'})[0]
 
+    def delete_rows(self, table, **conditions):
+        return self.request('DELETE', '/rest/v1/' + table, params=conditions)
+
+    def remove_objects(self, bucket, paths):
+        """Delete storage objects in chunks (Storage API bulk delete). Missing objects are ignored."""
+        paths = [p for p in paths if p]
+        for i in range(0, len(paths), 1000):
+            self.request('DELETE', '/storage/v1/object/' + quote(bucket, safe=''), json={'prefixes': paths[i:i + 1000]})
+
+    def insert_many(self, table, rows):
+        """Bulk insert in one request (PostgREST accepts a JSON array)."""
+        if rows:
+            self.request('POST', '/rest/v1/' + table, json=rows, headers={'Prefer': 'return=minimal'})
+
     def patch(self, table, row_id, data, **conditions):
         return self.request('PATCH', '/rest/v1/' + table, params={'id':'eq.'+str(row_id), **conditions}, json=data)
 

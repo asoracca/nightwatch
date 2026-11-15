@@ -5,8 +5,13 @@ def idempotency_key(video_id, version, config):
     value = {k:v for k,v in config.items() if k != 'reprocess'}
     return hashlib.sha256(json.dumps([str(video_id), version, value], sort_keys=True).encode()).hexdigest()
 
+def decision_score(d):
+    """Score that decides acceptance/review: the sensor-fused score when present, else the model's."""
+    fused = d.get('fused_confidence')
+    return d['confidence'] if fused is None else fused
+
 def needs_review(detections, floor=0.4, threshold=0.75):
-    return any(floor <= d['confidence'] < threshold for d in detections)
+    return any(floor <= decision_score(d) < threshold for d in detections)
 
 def summarize(frames, use_case):
     accepted = [d for f in frames for d in f['detections_json'] if d['accepted']]

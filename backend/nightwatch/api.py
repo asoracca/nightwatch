@@ -16,7 +16,7 @@ from .store import Store, StoreError
 app = FastAPI(title='NightWatch prototype evaluation', version='0.1.0')
 # Configuration is read at process startup, never baked into source.
 app.add_middleware(CORSMiddleware, allow_origins=[settings().frontend_origin],
-                   allow_credentials=False, allow_methods=['GET','POST'], allow_headers=['Authorization','Content-Type'])
+                   allow_credentials=False, allow_methods=['GET','POST','DELETE'], allow_headers=['Authorization','Content-Type'])
 _limits = defaultdict(deque)
 _lock = threading.Lock()
 
@@ -127,16 +127,58 @@ def video_detail(video_id: UUID,user=Depends(identity)):
     row = owned(video_id,user)
     return {**row,'playback_url':Store(user['token']).signed('videos',row['storage_path']) if row['upload_verified'] else None}
 
+@app.delete('/videos/{video_id}')
+def delete_video(video_id: UUID, user=Depends(identity)):
+    """Permanently delete an upload: its stored original and frame images, then the row. Database cascades
+    remove jobs, frames, investigations, experiment runs and reviews; linked device events are kept, unlinked."""
+    row = owned(video_id, user)
+    db = Store()
+    active = db.rows('processing_jobs', video_id='eq.'+str(video_id), status='in.(queued,processing)', select='id')
+    if active:
+        raise HTTPException(409, 'A job is queued or processing for this video; delete it after the job finishes')
+    frames, offset = [], 0
+    while True:
+        page = db.rows('video_frames', video_id='eq.'+str(video_id), select='frame_storage_path',
+                       order='id.asc', limit='1000', offset=str(offset))
+        frames += [r['frame_storage_path'] for r in page]
+        if len(page) < 1000:
+            break
+        offset += 1000
+    # Files first: if storage fails, the row still exists and the delete can simply be retried.
+    db.remove_objects('frames', frames)
+    db.remove_objects('videos', [row['storage_path']])
+    db.delete_rows('videos', id='eq.'+str(video_id))
+    return {'deleted': True, 'frames_removed': len(frames)}
+
+@app.post('/recordings/{recording_id}/reinvestigate')
+def reinvestigate_recording(recording_id: UUID, user=Depends(identity)):
+    """Ask the recordings watcher to rerun detection and fusion for one Arduino recording from scratch."""
+    from .recordings import REPROCESS_MARK
+    # Visibility is decided by the caller's own RLS on video_recordings, never by the service key.
+    if not Store(user['token']).rows('video_recordings', id='eq.'+str(recording_id), select='id'):
+        raise HTTPException(404, 'Recording not found')
+    db = Store()
+    existing = db.rows('recording_results', recording_id='eq.'+str(recording_id), select='recording_id')
+    if existing:
+        db.request('PATCH', '/rest/v1/recording_results', params={'recording_id': 'eq.'+str(recording_id)},
+                   json={'fusion_version': REPROCESS_MARK})
+    return {'queued': True,
+            'note': 'The recordings watcher (python -m nightwatch.recordings --watch) reprocesses it on its next poll; '
+                    'the current result stays visible until the new one is published.'}
+
 @app.post('/videos/{video_id}/process')
 def process(video_id: UUID, body: ProcessConfig,user=Depends(identity)):
     row = owned(video_id,user)
     if not row['upload_verified']:
         raise HTTPException(409,'Complete and validate upload first')
+    from .models import CATALOG, version
     s = settings()
-    if not s.model_sha256 or len(s.model_sha256) != 64:
-        raise HTTPException(503,'Server model checksum is not configured')
-    config = {**body.model_dump(exclude={'reprocess'}),'model_version':s.model_version,'model_sha256':s.model_sha256,'pipeline_version':'visibility-v2'}
-    key = idempotency_key(video_id,s.model_version,config)
+    name = body.model or s.default_model
+    if name not in CATALOG:
+        raise HTTPException(503,'Server default model is not in the pinned catalog')
+    config = {**body.model_dump(exclude={'reprocess'}),'model':name,'model_version':version(name),
+              'model_sha256':CATALOG[name]['sha256'],'pipeline_version':'visibility-v4-findings'}
+    key = idempotency_key(video_id,version(name),config)
     return Store().rpc('enqueue_job',{'p_video':str(video_id),'p_key':key,'p_config':config,'p_reprocess':body.reprocess})
 
 @app.get('/videos/{video_id}/status')

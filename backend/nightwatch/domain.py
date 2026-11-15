@@ -29,6 +29,10 @@ class ProcessConfig(BaseModel):
     threshold: float = Field(default=0.75, ge=0.4, le=1)
     review_floor: float = Field(default=0.40, ge=0.1, le=0.75)
     conditions: list[Condition] = Field(default_factory=lambda: ['clear'], min_length=1, max_length=4)
+    # Let linked distance/movement/thermal readings adjust person scores before ByteTrack (sensor_assist.py).
+    sensor_assist: bool = True
+    # Pinned detection model (models.CATALOG); the API fills in the server default when omitted.
+    model: Optional[Literal['yolo11n', 'yolo11s', 'yolo11m']] = None
     reprocess: bool = False
 
     @model_validator(mode='after')
@@ -45,6 +49,9 @@ class Detection(BaseModel):
     bbox: list[float] = Field(min_length=4, max_length=4)
     track_id: Optional[int] = Field(default=None, ge=0)
     accepted: bool
+    # Sensor-assisted score that drove tracking and acceptance; `confidence` stays the raw model output.
+    fused_confidence: Optional[float] = Field(default=None, ge=0, le=1)
+    sensor_reasons: list[str] = Field(default_factory=list)
 
     @model_validator(mode='after')
     def box(self):
