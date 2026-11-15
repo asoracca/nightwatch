@@ -4,7 +4,7 @@ Computer-vision **prototype evaluation** of detection and tracking under poor vi
 **Not safety-certified. Does not replace rescuers. Results depend on the uploaded footage and model.**
 
 ## Status
-Supabase schema and authenticated Arduino event service are deployed. The Next.js frontend is deployed on Vercel; validation and dependency updates are recorded in [verification](docs/VERIFICATION.md). **The backend real-video upload → processing → database → two-user isolation flow now passes in an isolated local Supabase stack. Hosted video inference remains disabled until Render deployment is verified.** Source repository: https://github.com/asoracca/nightwatch. No legacy data has been copied.
+Supabase schema and authenticated Arduino event service are deployed. The Next.js frontend is deployed on Vercel; validation and dependency updates are recorded in [verification](docs/VERIFICATION.md). **The backend real-video upload → hosted API → local Mac worker → hosted Supabase results flow passed, including two-user API/database/storage isolation. No paid worker is used. Your Mac must stay awake with the worker running. Integration with the teammate’s frontend remains to be verified.** Source repository: https://github.com/asoracca/nightwatch. No legacy data has been copied.
 
 Hardware integration: [Arduino setup and protocol](docs/HARDWARE.md). The UNO WiFi Rev2 sketch sends real motion events over TLS using a restricted, expiring device token. Camera-board image ingestion remains a separate future feature.
 

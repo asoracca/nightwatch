@@ -67,3 +67,13 @@ Render deployed commit 87ae502 successfully. Public API: https://nightwatch-api-
 User selected no paid hosting. Paid Render worker was never submitted, and its declaration was removed from render.yaml. Project-local Python 3.11.18, FFmpeg/ffprobe 9.0.2 and pinned backend dependencies were installed on the Apple Silicon Mac. `pytest -m 'not integration' -q`: 50 passed, 2 deselected. `pytest tests/test_real_model.py -q` with actual OpenCV pedestrian footage and checksum-verified YOLO weights: 1 passed in 22.27 seconds, covering clear, low_light, fog and blurry. No model metrics were invented.
 
 The local worker launcher correctly rejects missing Supabase keys. Local-to-hosted Supabase processing remains unverified until the owner fills backend/.env using scripts/configure-local.py. No worker daemon is currently running. The frontend remains unchanged.
+
+## Hosted API + local Mac worker acceptance — November 15, 2026
+
+PASS: real MP4 signed upload via https://nightwatch-api-r7mk.onrender.com, upload byte validation, processing job, local Mac YOLO/ByteTrack, saved frame images and results, investigation summary, idempotent processing retry, owner reads, and second-user denial through API, direct PostgREST RLS and private Storage signing. Existing test_integration.py assertions ran successfully against the hosted project.
+
+Evidence: video `79e8b8fe-0569-467e-abbb-7c0cd2388076`, job `2590a6f4-4c43-4d43-a9fa-3d9560b05d0e`, 40 saved condition-frames (clear and fog) from the actual four-second OpenCV pedestrian clip. Two newly created acceptance accounts are explicitly labelled test accounts; footage/results are real evaluation output, not legacy/demo migration data. Test passwords remain only in an ignored local file; no credentials or signed URLs are committed.
+
+Fixed configuration drift: the hosted videos bucket allowed only video/avi and video/x-msvideo, causing InvalidMimeType for MP4. Added video/mp4, video/quicktime and video/webm while preserving prior formats, private access and the 50 MiB cap. AVI is still not accepted by the Python upload API.
+
+Remaining: teammate frontend integration, actual signup/email confirmation through that frontend, rendered playback/overlays and human-operated Arduino event verification. Backend acceptance does not establish that the teammate frontend works.
