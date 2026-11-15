@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     model_sha256: str = ''
     max_video_bytes: int = 52428800
     max_video_seconds: int = 120
+    recordings_bucket: str = ''
     model_config = SettingsConfigDict(env_file='.env', extra='ignore')
 
 @lru_cache

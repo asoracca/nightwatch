@@ -10,11 +10,12 @@ def probe(path, max_seconds=120):
         data = json.loads(r.stdout)
         stream = next(s for s in data['streams'] if s['codec_type']=='video')
         duration = float(data['format']['duration'])
-        num, den = map(float,stream['avg_frame_rate'].split('/'))
-        fps = num/den
+        # Some AVI/MJPEG files report avg_frame_rate as 0/0; fall back to r_frame_rate.
+        rates = [stream.get(k,'0/0') for k in ('avg_frame_rate','r_frame_rate')]
+        fps = next(n/d for n,d in (map(float,r.split('/')) for r in rates) if n and d)
         width,height = int(stream['width']),int(stream['height'])
         formats = set(data['format']['format_name'].split(','))
-        if not formats.intersection({'mov','mp4','matroska','webm'}):
+        if not formats.intersection({'mov','mp4','matroska','webm','avi'}):
             raise ValueError()
         if not all(math.isfinite(x) for x in [duration,fps]) or not (0 < duration <= max_seconds and 0 < fps <= 240 and 0 < width <= 3840 and 0 < height <= 2160):
             raise ValueError()

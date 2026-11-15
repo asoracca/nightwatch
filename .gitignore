@@ -27,3 +27,5 @@ arduino_secrets.h
 
 .runtime/
 .local-run/
+
+outputs/

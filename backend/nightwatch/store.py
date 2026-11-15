@@ -44,9 +44,9 @@ class Store:
         r = self.request('POST', '/storage/v1/object/sign/' + bucket + '/' + quote(path, safe='/'), json={'expiresIn':900})
         return self.base + '/storage/v1' + r['signedURL']
 
-    def download(self, path, destination, max_bytes):
+    def download(self, path, destination, max_bytes, bucket='videos'):
         with httpx.Client(timeout=120) as client:
-            with client.stream('GET', self.base+'/storage/v1/object/videos/'+quote(path,safe='/'), headers=self.headers) as r:
+            with client.stream('GET', self.base+'/storage/v1/object/'+quote(bucket,safe='')+'/'+quote(path,safe='/'), headers=self.headers) as r:
                 if r.is_error:
                     raise StoreError(r.status_code)
                 size = 0
@@ -57,6 +57,14 @@ class Store:
                             raise ValueError('Video exceeds size limit')
                         f.write(chunk)
         return size
+
+    def upsert(self, table, data, on_conflict):
+        return self.request('POST', '/rest/v1/' + table, params={'on_conflict': on_conflict}, json=data,
+                            headers={'Prefer': 'resolution=merge-duplicates,return=representation'})[0]
+
+    def upload(self, bucket, path, content, content_type, upsert=False):
+        return self.request('POST', '/storage/v1/object/'+quote(bucket,safe='')+'/'+quote(path,safe='/'), content=content,
+                            headers={'Content-Type':content_type,'x-upsert':'true' if upsert else 'false'})
 
     def upload_frame(self, path, content):
         return self.request('POST', '/storage/v1/object/frames/'+quote(path,safe='/'), content=content,
