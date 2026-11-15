@@ -61,3 +61,9 @@ Render repository access is connected. API/worker deployment configuration is pr
 ## Hosted API deployment
 
 Render deployed commit 87ae502 successfully. Public API: https://nightwatch-api-r7mk.onrender.com. GET /health returned HTTP 200. This is liveness evidence only; the hosted worker and authenticated hosted video acceptance are still pending. The Docker image also built successfully in the isolated test environment. The teammate's frontend remains unchanged.
+
+## Local Mac verification — November 15, 2026
+
+User selected no paid hosting. Paid Render worker was never submitted, and its declaration was removed from render.yaml. Project-local Python 3.11.18, FFmpeg/ffprobe 9.0.2 and pinned backend dependencies were installed on the Apple Silicon Mac. `pytest -m 'not integration' -q`: 50 passed, 2 deselected. `pytest tests/test_real_model.py -q` with actual OpenCV pedestrian footage and checksum-verified YOLO weights: 1 passed in 22.27 seconds, covering clear, low_light, fog and blurry. No model metrics were invented.
+
+The local worker launcher correctly rejects missing Supabase keys. Local-to-hosted Supabase processing remains unverified until the owner fills backend/.env using scripts/configure-local.py. No worker daemon is currently running. The frontend remains unchanged.

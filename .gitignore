@@ -24,3 +24,6 @@ models/
 arduino_secrets.h
 *.bin
 *.hex
+
+.runtime/
+.local-run/

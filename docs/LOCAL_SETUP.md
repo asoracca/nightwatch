@@ -110,3 +110,23 @@ npm run test:e2e
 ```
 
 The real test is skipped if required inputs are missing. A skip is **not** a pass of the milestone. It creates real records in the dedicated local test project and does not clean them automatically. Reusing identical bytes returns the existing job; use a fresh local project or explicit reprocess when testing the complete pipeline again.
+
+## Mac worker with no paid hosting
+
+The paid Render worker was not created. `render.yaml` now declares only the free API. The processing worker runs on your Mac and connects to the same Supabase project as the API. Keep the Mac awake and online while jobs run. No inbound tunnel or public laptop port is needed for the worker.
+
+The project-local runtime uses uv for Python 3.11 and a Pixi environment for FFmpeg. Both tool binaries, caches, libraries, model weights and test footage stay under ignored local directories. No system Python changes are required. Use `scripts/setup-local-mac.sh` on an Apple Silicon Mac to reproduce installation. Then copy `.env.example` to `backend/.env` if it does not already exist.
+
+Run `.runtime/venv/bin/python scripts/configure-local.py` to privately fill SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY in `backend/.env` (key input is hidden). Never send the service key in chat or commit it. Keep the model checksum/version defaults. The launcher overrides MODEL_PATH with the correct local path.
+
+```bash
+./scripts/run-local.sh worker
+```
+
+Optional local API, in a second terminal:
+
+```bash
+./scripts/run-local.sh api
+```
+
+The worker remains foreground; Ctrl+C stops it. Only claim local readiness once the actual dependencies, model, connection and processing are verified.
