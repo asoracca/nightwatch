@@ -1,9 +1,9 @@
 # Local development
 
-Use Node 22, Python 3.11, Docker Desktop, Git, FFmpeg/ffprobe, PostgreSQL client (`psql`) and Supabase CLI. They are not bundled in this source tree. Commands below run from repository root unless noted. This setup has not been executed in the authoring environment.
+Use Node 22, Python 3.11, Docker Desktop, Git, FFmpeg/ffprobe, PostgreSQL client (`psql`) and Supabase CLI. They are not bundled in this source tree. Commands below run from repository root unless noted. The backend flow passed in an isolated Linux environment with local Supabase, real video, YOLO and ByteTrack; it has not been run on the author’s Mac.
 
 ## 1. Supabase
-Use Supabase CLI v2 (CLI v3 changes command behavior). Check installed help before running:
+Supabase CLI v3 was used for backend acceptance. Check installed help before running:
 
 ```bash
 supabase --version
@@ -20,13 +20,15 @@ supabase status
 Copy `.env.example` to `backend/.env`; insert the local anon and service-role keys from `supabase status` privately. With native Python use `http://127.0.0.1:54321`. With Docker Compose use `http://host.docker.internal:54321` for the backend URL. Browser env always uses `http://127.0.0.1:54321`.
 
 ## 2. Model
-Obtain `yolo11n.pt` from the official Ultralytics model release after reviewing its license. Put it in ignored `models/`. Do not commit weights. Compute its hash:
+Docker builds download the official YOLO11n model and verify its pinned SHA256. No host model mount is needed. Keep the model settings from `.env.example`; an empty MODEL_SHA256 would override the image default and fail validation.
+
+For native Python, install dependencies first, then from `backend/` run:
 
 ```bash
-python3 scripts/model_checksum.py models/yolo11n.pt
+python -m nightwatch.fetch_model ../models/yolo11n.pt
 ```
 
-Set `MODEL_SHA256` to the output and `MODEL_VERSION=yolo11n`. Set `MODEL_PATH` to an absolute host path for native Python, or `/models/yolo11n.pt` for the worker container. The worker never silently downloads a model or switches weights. A checksum records the exact file; provenance still depends on obtaining it from a trusted source.
+Set MODEL_PATH to that file's absolute host path. Keep MODEL_VERSION and MODEL_SHA256 from `.env.example`. Review the Ultralytics model license before use. Weights are ignored by Git; inference never silently downloads or substitutes weights.
 
 ## 3. API and worker
 Docker option (recommended):
@@ -40,6 +42,7 @@ Native option, run in `backend/`:
 ```bash
 python3.11 -m venv .venv
 source .venv/bin/activate
+python -m pip install torch==2.15.0 torchvision==0.29.2 --index-url https://download.pytorch.org/whl/cpu
 python -m pip install -r requirements.txt
 uvicorn nightwatch.api:app --host 127.0.0.1 --port 8000
 ```

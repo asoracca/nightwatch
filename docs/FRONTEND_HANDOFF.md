@@ -1,6 +1,6 @@
 # Backend integration for the teammate's frontend
 
-The existing frontend is being replaced separately. These routes are frontend-framework independent. The final Render API URL is pending deployment; do not use the Vercel URL as the Python API base.
+The existing frontend is being replaced separately. These routes are frontend-framework independent. API base: https://nightwatch-api-r7mk.onrender.com. The API is live; the hosted processing worker is pending approval and deployment. Do not start hosted processing until the worker is verified. Do not use the Vercel URL as the Python API base.
 
 1. Authenticate with Supabase using its public URL and anon key. Retain the session access token; send `Authorization: Bearer <access_token>` to the Python API. Refresh sessions through Supabase. Never put the service-role key in frontend code.
 2. Compute the selected file's SHA256. POST `/videos/upload-init` with `filename`, `content_type`, `size_bytes`, `sha256`, and `use_case`. Limits: 50 MiB and 120 seconds; MP4, MOV or WebM. The backend validates the real bytes/container.

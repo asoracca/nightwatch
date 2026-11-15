@@ -57,3 +57,7 @@ Verified upload initialization, actual signed Storage upload, byte/hash/containe
 The opt-in real-model test also passed over all four visibility conditions. See ML_VALIDATION.md for provenance, hashes, dependency refresh and audit qualifications. Fifty unit tests passed after web/explanation dependency updates; deployment verification continues.
 
 Render repository access is connected. API/worker deployment configuration is prepared in render.yaml and Dockerfile, with CPU wheels and checksum-pinned model downloading. Hosted service deployment and its acceptance run are still pending. No frontend files were changed in this backend milestone.
+
+## Hosted API deployment
+
+Render deployed commit 87ae502 successfully. Public API: https://nightwatch-api-r7mk.onrender.com. GET /health returned HTTP 200. This is liveness evidence only; the hosted worker and authenticated hosted video acceptance are still pending. The Docker image also built successfully in the isolated test environment. The teammate's frontend remains unchanged.
