@@ -42,6 +42,26 @@ ACCEPTED_COLOR = (0, 200, 0)      # BGR green: confidence >= threshold
 REVIEW_COLOR = (0, 170, 255)      # BGR amber: review band [floor, threshold)
 
 
+def result_name(rec):
+    """Folder name for a recording's results, locally and in the bucket: '<recorded_at UTC>_<id>',
+    e.g. 20261115T074418Z_41516563-...; same timestamp style as the Arduino's video filenames."""
+    for key in ('recorded_at', 'uploaded_at'):
+        try:
+            t = datetime.fromisoformat(str(rec[key]).replace('Z', '+00:00')).astimezone(timezone.utc)
+            return f"{t:%Y%m%dT%H%M%SZ}_{rec['id']}"
+        except (KeyError, TypeError, ValueError):
+            continue
+    return rec['id']
+
+
+def name_to_id(name):
+    """Recording ID from a folder name in either the new '<time>_<id>' or the old '<id>' form."""
+    try:
+        return str(UUID(name[-36:]))
+    except ValueError:
+        return None
+
+
 def fetch_recordings(db, recording_id=None, limit=1):
     query = {'select': COLUMNS}
     if recording_id:
@@ -85,7 +105,7 @@ def make_clip(frames_dir, fps, destination):
 def process_recording(rec, db, out_root, cfg, bucket):
     import cv2
     s = settings()
-    out = Path(out_root) / rec['id']
+    out = Path(out_root) / result_name(rec)
     out.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
         source = Path(tmp) / ('input' + Path(rec['storage_path']).suffix)
@@ -137,7 +157,7 @@ def process_recording(rec, db, out_root, cfg, bucket):
 
 def publish(db, rec, out, result):
     """Upload annotated media, then upsert the row. The row is written last, so its presence means complete."""
-    prefix = rec['id']
+    prefix = result_name(rec)
     for image in sorted((out / 'frames').rglob('*.jpg')):
         db.upload(RESULTS_BUCKET, f'{prefix}/{image.relative_to(out).as_posix()}', image.read_bytes(),
                   'image/jpeg', upsert=True)
@@ -177,10 +197,10 @@ def publish_failure(db, rec, msg):
         log.error('Could not record failure for %s in %s (HTTP %s)', rec['id'], RESULTS_TABLE, e.status)
 
 
-def local_result(out_root, rec, cfg):
+def local_result(out_root, rec, cfg, folder=None):
     """The saved result.json if it can be uploaded as-is: same rules, model, settings, recording row
     (including sensor arrays) and all media files present. Otherwise None, meaning reprocess."""
-    out = Path(out_root) / rec['id']
+    out = Path(folder) if folder else Path(out_root) / result_name(rec)
     try:
         result = json.loads((out / 'result.json').read_text())
         s = settings()
@@ -205,7 +225,7 @@ def report(rec, result, where):
 
 
 def run_one(rec, db, out_root, cfg, bucket, upload=True, reuse=True):
-    out = Path(out_root) / rec['id']
+    out = Path(out_root) / result_name(rec)
     saved = local_result(out_root, rec, cfg) if upload and reuse else None
     if saved:
         log.info('Uploading saved result for %s (already up to date locally)', rec['id'])
@@ -228,7 +248,7 @@ def run_one(rec, db, out_root, cfg, bucket, upload=True, reuse=True):
         report(rec, result, f"{RESULTS_TABLE} + {out}" if upload else str(out))
         return True
     log.error('Recording %s failed: %s', rec['id'], msg)
-    err_dir = Path(out_root) / rec['id']
+    err_dir = Path(out_root) / result_name(rec)
     err_dir.mkdir(parents=True, exist_ok=True)
     (err_dir / 'error.json').write_text(json.dumps({'recording': rec, 'error': msg,
                                                     'at': datetime.now(timezone.utc).isoformat()}, indent=2))
@@ -242,7 +262,7 @@ def already_handled(db, recs, out_root, upload):
     or local files with --no-upload. Bumping FUSION_VERSION reprocesses the recent recordings."""
     if not upload:
         return {r['id'] for r in recs
-                if (Path(out_root) / r['id'] / 'result.json').exists() or (Path(out_root) / r['id'] / 'error.json').exists()}
+                if (Path(out_root) / result_name(r) / 'result.json').exists() or (Path(out_root) / result_name(r) / 'error.json').exists()}
     if not recs:
         return set()
     rows = db.rows(RESULTS_TABLE, select='recording_id,fusion_version',
@@ -253,12 +273,7 @@ def already_handled(db, recs, out_root, upload):
 def sync_local(db, out_root, cfg, bucket):
     """Upload every up-to-date local result that Supabase lacks (or has from older rules).
     Covers recordings older than the watcher's 20-most-recent window; stale ones are left alone."""
-    ids = []
-    for d in Path(out_root).glob('*/result.json'):
-        try:
-            ids.append(str(UUID(d.parent.name)))
-        except ValueError:
-            continue
+    ids = [i for i in (name_to_id(d.parent.name) for d in Path(out_root).glob('*/result.json')) if i]
     uploaded = 0
     for i in range(0, len(ids), 50):
         batch = ids[i:i + 50]
