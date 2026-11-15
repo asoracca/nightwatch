@@ -11,3 +11,5 @@
 9. Close with: “NightWatch is a prototype evaluation tool. It is not safety-certified, does not replace rescuers, and its results depend on the uploaded footage and model.”
 
 Demo readiness requires all steps to work with real outputs. Current implementation has not met that acceptance gate in the authoring environment. No Databricks records were copied and no live deployment is claimed.
+
+Test text
