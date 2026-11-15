@@ -1,0 +1,6 @@
+#pragma once
+#define WIFI_SSID "YOUR_WIFI_NAME"
+#define WIFI_PASSWORD "YOUR_WIFI_PASSWORD"
+#define API_HOST "YOUR_NIGHTWATCH_HOST.vercel.app"
+#define DEVICE_ID "nightwatch-device-001"
+#define DEVICE_TOKEN "COPY_ONE_TIME_RESTRICTED_DEVICE_TOKEN"

@@ -1,0 +1,1 @@
+{"framework":"nextjs","buildCommand":"npm run typecheck && NODE_ENV=test npm test && npm run build","installCommand":"npm ci"}

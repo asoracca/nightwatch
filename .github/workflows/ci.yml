@@ -1,0 +1,26 @@
+name: checks
+on: [push, pull_request]
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install fastapi==0.115.6 httpx==0.28.1 pydantic==2.10.4 pydantic-settings==2.7.0 pytest==8.3.4 langchain-core==0.3.29
+      - run: python -m pytest -m 'not integration'
+        working-directory: backend
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run typecheck && npm test && npm run build
+        working-directory: frontend
+# Live database, real-model and browser acceptance tests require a dedicated local
+# Supabase project, actual consented clip and running services. Unit CI is not E2E.
